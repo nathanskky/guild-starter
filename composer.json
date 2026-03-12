@@ -1,0 +1,40 @@
+{
+  "name": "shadow/starter",
+  "description": "Starter project using the Shadow Framework.",
+  "type": "project",
+  "authors": [
+    {
+      "name": "Nathan Skky Rodriguez",
+      "email": "nsrodrig@iu.edu"
+    }
+  ],
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "git@github.iu.edu:nsrodrig/shadow-framework.git"
+    },
+    {
+      "type": "vcs",
+      "url": "git@github.iu.edu:nsrodrig/shadow-access.git"
+    }
+  ],
+  "require": {
+    "php": "~8.4.0",
+    "shadow/framework": "dev-develop",
+    "shadow/access": "dev-develop",
+    "vlucas/phpdotenv": "^5.6"
+  },
+  "require-dev": {
+    "phpunit/phpunit": "^13.0"
+  },
+  "autoload": {
+    "psr-4": {
+      "Shadow\\Starter\\": "src"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Shadow\\Starter\\Test\\": "tests"
+    }
+  }
+}
