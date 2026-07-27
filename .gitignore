@@ -4,4 +4,5 @@ tmp/
 vendor/
 
 *.env*
-!*.env.example
+!app.env.example
+!database.env.example
