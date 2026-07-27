@@ -1,6 +1,6 @@
 <?php declare(strict_types=1);
 
-use Shadow\Framework\Application;
+use Guild\Framework\Application;
 
 /** @var Application $application */
 $application = require dirname(__FILE__, 2) . '/bootstrap/app.php';

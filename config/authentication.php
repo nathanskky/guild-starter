@@ -1,25 +1,17 @@
 <?php declare(strict_types=1);
 
 /**
- * Configuration for the Authentication middleware provided by the Shadow\Access
- * library.
+ * Configuration for the OIDC Authentication middleware.
  *
- * Instantiate a configuration object for the authentication protocol you intend
- * to use (i.e. CAS, SAML, OIDC). Only CAS has an implementation currently; OIDC
- * is planned next.
- *
- * @todo clean up this docblock -- too obtuse
+ * @see https://github.com/nathanskky/guild-access#configuration
  */
 
-use Shadow\Access\Authentication\CasAuthenticationConfiguration;
+use Guild\Access\Authentication\OIDC\OidcConfiguration;
 
-// TODO: get (all?) values from environment
-$config = new CasAuthenticationConfiguration(
-    host: 'idp-stg.login.iu.edu',
-    serviceBaseUrl: 'http://localhost',
+return new OidcConfiguration(
+    providerUrl:  $_ENV['OIDC_ISSUER'], // e.g. 'https://idp.login.iu.edu'
+    clientId:     $_ENV['OIDC_CLIENT_ID'],
+    clientSecret: $_ENV['OIDC_CLIENT_SECRET'],
+    redirectUri:  $_ENV['OIDC_REDIRECT_URI'], // e.g. 'https://your-app.webapps.iu.edu/signin-oidc'
+    scopes:       ['profile', 'email'],
 );
-
-$config->sslValidate = false;
-$config->debug = true;
-
-return $config;

@@ -3,4 +3,5 @@ html/
 tmp/
 vendor/
 
-.env
+*.env*
+!*.env.example

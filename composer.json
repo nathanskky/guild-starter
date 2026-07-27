@@ -1,6 +1,6 @@
 {
-  "name": "shadow/starter",
-  "description": "Starter project using the Shadow Framework.",
+  "name": "guild/starter",
+  "description": "Starter project using the Guild Framework.",
   "type": "project",
   "authors": [
     {
@@ -11,30 +11,29 @@
   "repositories": [
     {
       "type": "vcs",
-      "url": "git@github.iu.edu:nsrodrig/shadow-framework.git"
+      "url": "https://github.com/nathanskky/guild-framework.git"
     },
     {
       "type": "vcs",
-      "url": "git@github.iu.edu:nsrodrig/shadow-access.git"
+      "url": "https://github.com/nathanskky/guild-access.git"
     }
   ],
   "require": {
-    "php": "~8.4.0",
-    "shadow/framework": "dev-develop",
-    "shadow/access": "dev-develop",
-    "vlucas/phpdotenv": "^5.6"
+    "php": "~8.5.0",
+    "guild/framework": "dev-develop",
+    "guild/access": "^1.0"
   },
   "require-dev": {
     "phpunit/phpunit": "^13.0"
   },
   "autoload": {
     "psr-4": {
-      "Shadow\\Starter\\": "src"
+      "Guild\\Starter\\": "src"
     }
   },
   "autoload-dev": {
     "psr-4": {
-      "Shadow\\Starter\\Test\\": "tests"
+      "Guild\\Starter\\Test\\": "tests"
     }
   }
 }
