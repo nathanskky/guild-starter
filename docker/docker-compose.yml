@@ -1,0 +1,39 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: app.Dockerfile
+    volumes:
+      - ../:/var/www
+      - ../public:/var/www/html
+      - ../tmp/xdebug:/tmp/xdebug
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      database:
+        condition: service_healthy
+      mailcatcher:
+        condition: service_started
+    env_file:
+      - ../app.env
+  database:
+    image: mysql:8.4
+    expose:
+      - "3306"
+    ports:
+      - "9906:3306"
+    volumes:
+      - ../tmp/mysql:/var/lib/mysql
+    env_file:
+      - ../database.env
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+  mailcatcher:
+    image: sj26/mailcatcher
+    ports:
+      - "1080:1080"
+      - "1025:1025"
