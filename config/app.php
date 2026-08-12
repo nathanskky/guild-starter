@@ -7,11 +7,13 @@
  */
 
 use Guild\Framework\Application;
+use Guild\Framework\TemplateEngine;
 
 $basePath = dirname(__FILE__, 2);
 
 return Application::configure($basePath)
     ->addRouting()
     ->addIlluminateDatabase()
+    ->addTemplateEngine(TemplateEngine::Twig)
     ->enableAutoWiring()
     ->create();

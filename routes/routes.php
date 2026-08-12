@@ -7,9 +7,7 @@
  * @todo link to example doc(s)
  */
 
-use Laminas\Diactoros\Response\HtmlResponse;
-use Psr\Http\Message\ResponseInterface;
-use Psr\Http\Message\ServerRequestInterface;
+use Guild\Starter\Example\ExampleController;
 use Guild\Access\Authentication\OIDC\OidcAuthenticationMiddleware;
 use Guild\Framework\Router;
 
@@ -25,7 +23,5 @@ return static function (Router $router) {
     // $router->lazyMiddleware(OidcAuthenticationMiddleware::class);
 
     // An example route.
-    $router->map('GET', '/', function (ServerRequestInterface $request): ResponseInterface {
-        return new HtmlResponse('<h1>Hello, World!</h1>');
-    });
+    $router->map('GET', '/', [ExampleController::class, 'index']);
 };
