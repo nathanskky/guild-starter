@@ -1,7 +1,14 @@
 html/
 tmp/
 vendor/
+.phpunit.cache/
+.phpunit.result.cache
 
 *.env*
 !app.env.example
 !database.env.example
+
+.idea/
+
+.miller/
+.julieignore

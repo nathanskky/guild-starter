@@ -1,39 +1,49 @@
 {
-  "name": "guild/starter",
-  "description": "Starter project using the Guild Framework.",
-  "type": "project",
-  "authors": [
-    {
-      "name": "Nathan Skky Rodriguez",
-      "email": "nsrodrig@iu.edu"
-    }
-  ],
-  "repositories": [
-    {
-      "type": "vcs",
-      "url": "https://github.com/nathanskky/guild-framework.git"
+    "name": "guild/starter",
+    "description": "Starter project using the Guild Framework.",
+    "type": "project",
+    "authors": [
+        {
+            "name": "Nathan Skky Rodriguez",
+            "email": "nsrodrig@iu.edu"
+        }
+    ],
+    "repositories": [
+        {
+            "type": "vcs",
+            "url": "https://github.com/nathanskky/guild-framework.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/nathanskky/guild-access.git"
+        }
+    ],
+    "require": {
+        "php": "~8.5.0",
+        "guild/framework": "dev-develop",
+        "guild/access": "^1.0"
     },
-    {
-      "type": "vcs",
-      "url": "https://github.com/nathanskky/guild-access.git"
+    "require-dev": {
+        "phpunit/phpunit": "^13.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Guild\\Starter\\": "src"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Guild\\Starter\\Test\\": "tests"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "check": [
+            "@test"
+        ]
+    },
+    "scripts-descriptions": {
+        "test": "Run the test suite (fails if no tests run - tests/ is currently empty).",
+        "check": "Run every check this package has. No PHPStan here yet; see AGENTS.md."
     }
-  ],
-  "require": {
-    "php": "~8.5.0",
-    "guild/framework": "dev-develop",
-    "guild/access": "^1.0"
-  },
-  "require-dev": {
-    "phpunit/phpunit": "^13.0"
-  },
-  "autoload": {
-    "psr-4": {
-      "Guild\\Starter\\": "src"
-    }
-  },
-  "autoload-dev": {
-    "psr-4": {
-      "Guild\\Starter\\Test\\": "tests"
-    }
-  }
 }
