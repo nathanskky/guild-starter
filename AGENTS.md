@@ -13,7 +13,9 @@ consuming app is wired. Namespace `Guild\Starter\`, autoloaded from `src/`. Unli
   `https://github.com/nathanskky/guild-starter.git` if you don't have SSH keys set up
 - **Default branch:** `develop`. **Work targets `develop`** — see
   [Branching and pull requests](#branching-and-pull-requests).
-- **`composer.lock` is tracked here** — uniquely among the four packages. See [Landmines](#landmines).
+- **`composer.lock` is gitignored here**, like the other three packages. This repo is a template meant to
+  always resolve current dependency versions for whoever copies it — a project built from this starter
+  should begin tracking its own lock once it exists as a real, deployed app.
 
 ## Sibling packages
 
@@ -47,8 +49,7 @@ falsely exiting 0. **The fix is to write a test, not to remove the flag.** Test 
 `Guild\Starter\Test\`. For the house test style, read `access/tests/` in the sibling repo.
 
 **There is no PHPStan in this package** — it is not in `require-dev` and there is no `phpstan.neon`. So
-there is no `composer analyse` here, unlike the three libraries. Adding PHPStan means touching the tracked
-`composer.lock`, which is why it hasn't been done yet.
+there is no `composer analyse` here, unlike the three libraries.
 
 Static analysis levels across the workspace, for reference: `access` `max`, `framework` `10`,
 `notification` `5`, `starter` none. Do not assume one bar.
@@ -168,10 +169,6 @@ pointer at it.
 
 ## Landmines
 
-- **`composer.lock` is tracked here, uniquely among the four packages.** `composer install` therefore
-  installs the *committed* lock, which can downgrade or remove what is currently vendored. **Run
-  `git status` on it before installing**, and be deliberate about whether a lock change belongs in your
-  commit.
 - **Editing `../framework` or `../access` does nothing here until you publish.** `vendor/guild/framework`
   and `vendor/guild/access` are real directories holding downloaded zipballs, not symlinks — typically
   several commits behind those repos' HEADs. See [Getting a change to consumers](#getting-a-change-to-consumers).
@@ -229,11 +226,8 @@ package, so tagging it is about marking releases of the starter itself, not abou
 
 ### Before opening a PR
 
-Two things to check, both specific to this package:
+One thing to check, specific to this package:
 
-- **`composer.lock` is tracked.** Decide deliberately whether a lock change belongs in your PR. A lock diff
-  that arrived incidentally — from a `composer update` you ran while debugging, or from a temporary path
-  repository — should not be in it.
 - **No path repository should be left in `composer.json`.** If you used one to test against a local sibling
   (see below), revert it before committing. It will break the build for everyone else, since `../framework`
   won't exist on their machine or in CI.
@@ -250,8 +244,8 @@ entries in `composer.json`, then `composer update guild/framework`:
 { "type": "path", "url": "../framework", "options": { "symlink": true } }
 ```
 
-**Revert it before committing** — it is a local-only convenience, and this repo's `composer.lock` is
-tracked, so a path repository can otherwise leak into a commit.
+**Revert it before committing** — it is a local-only convenience, and `composer.json` is tracked, so a
+forgotten path repository can otherwise leak into a commit.
 
 **Real publish loop:**
 

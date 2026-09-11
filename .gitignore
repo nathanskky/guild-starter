@@ -1,6 +1,7 @@
 html/
 tmp/
 vendor/
+composer.lock
 .phpunit.cache/
 .phpunit.result.cache
 
