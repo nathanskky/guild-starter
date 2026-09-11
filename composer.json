@@ -24,7 +24,8 @@
         "guild/access": "^1.0"
     },
     "require-dev": {
-        "phpunit/phpunit": "^13.0"
+        "phpunit/phpunit": "^13.0",
+        "laravel/pint": "^1.32"
     },
     "autoload": {
         "psr-4": {
@@ -38,12 +39,17 @@
     },
     "scripts": {
         "test": "phpunit",
+        "format": "pint",
+        "format:check": "pint --test",
         "check": [
-            "@test"
+            "@test",
+            "@format:check"
         ]
     },
     "scripts-descriptions": {
         "test": "Run the test suite (fails if no tests run - tests/ is currently empty).",
-        "check": "Run every check this package has. No PHPStan here yet; see AGENTS.md."
+        "format": "Auto-fix code style with Pint (PSR-12).",
+        "format:check": "Check code style with Pint (PSR-12) without modifying files.",
+        "check": "Run tests then style check. No PHPStan here yet; see AGENTS.md."
     }
 }

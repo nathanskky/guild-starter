@@ -1,4 +1,6 @@
-<?php declare(strict_types=1);
+<?php
+
+declare(strict_types=1);
 
 namespace Guild\Starter\Example;
 
@@ -8,7 +10,9 @@ use Psr\Http\Message\ServerRequestInterface;
 
 readonly class ExampleController
 {
-    public function __construct(private View $view) {}
+    public function __construct(private View $view)
+    {
+    }
 
     public function index(ServerRequestInterface $request): HtmlResponse
     {
