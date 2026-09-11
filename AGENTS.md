@@ -153,8 +153,9 @@ formatter/linter lands in this repo, its config becomes authoritative and this s
 pointer at it.
 
 - **`<?php declare(strict_types=1);` on one line.** Every PHP file in the workspace does this — including
-  the config and bootstrap files — with no exceptions. It departs from PSR-12 §3 deliberately; an agent that
-  "fixes" it touches every file.
+  the config and bootstrap files — with no exceptions. Note this differs from PSR-12 §3, which puts
+  `declare` on its own line — so don't let a formatter or a well-meaning edit "correct" it, or you will
+  touch every file in the repo.
 - **Empty class/method bodies use hugged `{}`** on the line after the signature. Do not expand them.
 - **How you organize `src/` is your call.** This is a starter template, so the internal structure of your
   application code is a decision for whoever builds the app — there is no layout convention to conform to
