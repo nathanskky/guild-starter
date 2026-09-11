@@ -95,7 +95,8 @@ that route everything through `public/index.php`. To enable it you need all thre
 
 - `->addAuthentication()` in the builder chain in `config/app.php`
 - `config/authentication.php` returning a valid `OidcConfiguration`
-- the `OIDC_*` env vars it reads (see Landmines — they are not in `app.env.example` yet)
+- real values for the `OIDC_*` env vars it reads (see Landmines — they're in `app.env.example`, but the
+  client ID and secret ship blank)
 
 Middleware is attached in routing code, not in config. `routes/routes.php` carries a commented example:
 `// $router->lazyMiddleware(OidcAuthenticationMiddleware::class);` applies it to every route; it can also be
@@ -179,17 +180,18 @@ pointer at it.
   without also adding `addAuthentication()` fails at dispatch: autowiring reaches
   `OidcAuthenticationMiddleware::__construct(OidcConfiguration, ?LoggerInterface)` and cannot construct
   `OidcConfiguration`, whose constructor requires three strings.
-- **The `OIDC_*` env vars are undocumented.** `config/authentication.php` reads `OIDC_ISSUER`,
-  `OIDC_CLIENT_ID`, `OIDC_CLIENT_SECRET`, and `OIDC_REDIRECT_URI`, but **none of them appear in
-  `app.env.example`**. Unset `$_ENV` keys read as `""`, which trips `OidcConfiguration`'s validation and
-  throws `OidcConfigurationException`. Enabling OIDC means: builder call + four env vars + an
-  `app.env.example` update.
+- **The `OIDC_*` env vars are now documented in `app.env.example`** (`OIDC_ISSUER`, `OIDC_CLIENT_ID`,
+  `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`), but `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` still ship
+  blank there — an unset `$_ENV` key reads as `""`, which trips `OidcConfiguration`'s validation and throws
+  `OidcConfigurationException`. Enabling OIDC still means: the `->addAuthentication()` builder call, real
+  values for those two secrets in your local `app.env`, and (see below) a bound `LoggerInterface`.
 - **No `LoggerInterface` is bound in the container**, yet `AuthenticationServiceProvider` passes
   `LoggerInterface::class` as a constructor argument. Autowiring cannot instantiate an interface, so an app
   that enables authentication must bind a logger itself. The logger argument to
   `OidcAuthenticationService` is optional — omitting it is fine — but the provider as written expects the
   binding.
-- **Five `LDAP_*` keys in `app.env` are read by no code.** Orphaned configuration; don't assume an LDAP
+- **Five `LDAP_*` keys (`app.env` and `app.env.example`) are read by no code.** Orphaned configuration,
+  documented in the example file only for parity with the deployed `app.env`; don't assume an LDAP
   integration exists.
 - **`bin/`, `lib/`, `html/`, `tests/`, `public/css/`, and `public/js/` are all empty.** `html/` is
   gitignored and unused — Docker mounts `public/` to the container's docroot instead.
