@@ -155,12 +155,6 @@ apply it, `composer format:check` to verify without writing. Its rules are autho
 enforces — don't hand-fix a style issue Pint would catch, and don't fight its output. The patterns below are
 *observed*, not a style guide, and now cover only what Pint doesn't decide.
 
-- **`<?php declare(strict_types=1);` is split onto its own line** (PSR-12 §3), including in config and
-  bootstrap files — Pint enforces this. The workspace previously used a one-line
-  `<?php declare(strict_types=1);`, which conflicted with PSR-12; Pint's initial run corrected it
-  everywhere. Don't collapse it back to one line.
-- **Empty class/method bodies are two-line** (`{` then `}` on its own line) — Pint's PSR-12 preset expands
-  what used to be a hugged `{}` on the same line. Don't hand-collapse it back.
 - **How you organize `src/` is your call.** This is a starter template, so the internal structure of your
   application code is a decision for whoever builds the app — there is no layout convention to conform to
   here. `src/Example/` is not a pattern to copy: it exists to keep the example code in one identifiable
