@@ -19,7 +19,7 @@ consuming app is wired. Namespace `Guild\Starter\`, autoloaded from `src/`. Unli
 
 ## Sibling packages
 
-These four repos are developed side by side but are **four independent git repos**. There is no root
+These repos are developed side by side but are **independent git repos**. There is no root
 `composer.json` and no root git repository, so each is cloned and installed on its own. Do not invent
 root-level tooling or a shared root autoloader.
 
@@ -29,6 +29,7 @@ root-level tooling or a shared root autoloader.
 | `guild/framework` | `Guild\Framework\` | Application kernel / DI container. Required as `dev-develop` (branch tip) |
 | `guild/access` | `Guild\Access\` | IU Login (OIDC) authentication. Required **directly** as `^1.0`, as well as transitively through the framework |
 | `iu/notifications` | `IU\Notifications\` | IU Notifications API client. Fully independent; not used here |
+| `guild/rivet` | `Guild\Rivet\` | IU Rivet Design System components, reached through the framework |
 
 `framework/AGENTS.md` documents the `ApplicationBuilder` API this app configures.
 `access/README.md` is the authoritative reference for OIDC config fields and redirect behavior.
@@ -216,7 +217,7 @@ feature branch  --PR-->  develop  --PR-->  main  --> tag (release)
   accumulated work is ready to release.
 - **Tags are applied to `main`** after that merge.
 
-This is the intended model across all four Guild packages. This package has not reached v1 yet, so `main`
+This is the intended model across all the Guild packages. This package has not reached v1 yet, so `main`
 and tagging are not in use here today — but assume this flow for new work. Note that nothing consumes this
 package, so tagging it is about marking releases of the starter itself, not about publishing to a dependent.
 
