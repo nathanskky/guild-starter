@@ -8,8 +8,10 @@ ADD https://github.com/mlocati/docker-php-extension-installer/releases/latest/do
 RUN chmod +x /usr/local/bin/install-php-extensions && \
     install-php-extensions intl gd xdebug oci8 pdo_mysql ldap zip
 
-# Copy the Apache virtual host configuration file into the image
-COPY ./000-default.conf /etc/apache2/sites-available/000-default.conf
+# The Apache virtual host config and the CAS module config are bind-mounted at container start
+# (see docker-compose.yml) and rendered by docker-entrypoint.sh, so the port they reference can
+# change without rebuilding the image; the files installed below by their respective packages
+# are overwritten at container start with rendered content from the bind-mounted templates.
 
 # Enable the Apache rewrite module
 RUN a2enmod rewrite
@@ -25,8 +27,15 @@ RUN set -eux; \
 # Enable Apereo CAS module for Apache
 RUN apt-get update && \
     apt-get install -y libapache2-mod-auth-cas
-COPY ./auth_cas.conf /etc/apache2/mods-available/auth_cas.conf
 RUN a2enmod auth_cas
+
+# Install envsubst, used by docker-entrypoint.sh to render the port into Apache config at startup
+RUN apt-get update && \
+    apt-get install -y gettext-base
+
+# Copy the entrypoint script that renders the bind-mounted config templates before Apache starts
+COPY ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Copy xdebug configuration into the image
 COPY ./xdebug.ini /usr/local/etc/php/conf.d/docker-php-ext-xdebug.ini
@@ -48,3 +57,7 @@ RUN ln -sf /bin/bash /bin/sh
 
 # Set the default working directory when opening an interactive shell
 WORKDIR /var/www
+
+# Render the bind-mounted config templates, then hand off to the base image's normal entrypoint
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["apache2-foreground"]

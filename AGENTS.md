@@ -126,7 +126,7 @@ Three services, from `docker/docker-compose.yml`:
 
 | Service | Image / build | Ports (host:container) |
 |---|---|---|
-| `app` | built from `app.Dockerfile` (`php:8.5-apache`) | `8080:80`, `8443:443` |
+| `app` | built from `app.Dockerfile` (`php:8.5-apache`) | `APP_HTTP_PORT:80`, `APP_HTTPS_PORT:443` (default `8080`/`8443`) |
 | `database` | `mysql:8.4` | `9906:3306` |
 | `mailcatcher` | `sj26/mailcatcher` | `1080:1080` (web UI), `1025:1025` (SMTP) |
 
@@ -138,17 +138,23 @@ Compose bind-mounts `../:/var/www` **and** `../public:/var/www/html`, so edits i
 straight back to the host tree — and `vendor/` is host-resolved, meaning macOS-installed dependencies are
 executed by Debian PHP inside the container.
 
-> **Open item — the dev URL and the CAS port.** `docker/000-default.conf` has an unconditional
-> `Redirect / https://localhost/` on the `*:80` vhost. That drops the port, so plain
-> `http://localhost:8080` redirects to a URL that does not resolve; go to the HTTPS port directly
-> (self-signed cert, so expect a browser warning).
->
-> Separately, Apache CAS needs the port present in `CASRootProxiedAs` for the auth flow to work, so that
-> value has to agree with whatever port Docker publishes. Ideally the port would be dynamic and follow
-> Docker automatically; whether that is achievable has not been settled. **Treat the canonical dev URL and
-> the `CASRootProxiedAs` handling as unresolved** — check `docker/docker-compose.yml` and
-> `docker/auth_cas.conf` for the values currently in effect rather than trusting a URL written in any doc,
-> including this one.
+**The `app` service's host ports are configurable, not hardcoded.** `docker/docker-compose.yml` reads
+`APP_HTTP_PORT` and `APP_HTTPS_PORT` from `docker/.env` (falling back to `8080`/`8443` if unset; copy
+`docker/.env.example` to get started). The HTTPS port is also passed into the container as an environment
+variable, because two Apache config files need to agree with it for the auth flow to work correctly:
+
+- `docker/000-default.conf`'s `Redirect / https://localhost:${APP_HTTPS_PORT}/` on the `*:80` vhost — so
+  plain `http://localhost:8080` (or whatever `APP_HTTP_PORT` resolves to) redirects to a URL that actually
+  resolves, at the HTTPS port (self-signed cert, so expect a browser warning).
+- `docker/auth_cas.conf`'s `CASRootProxiedAs https://localhost:${APP_HTTPS_PORT}`, needed for the CAS auth
+  flow.
+
+Both files are checked-in **templates** — they still contain the literal `${APP_HTTPS_PORT}` placeholder.
+Compose bind-mounts them read-only into the container at `*.template` paths (not their real Apache config
+paths), and `docker/docker-entrypoint.sh` renders them with `envsubst` into the paths Apache actually reads,
+every time the container starts — before calling the base image's own entrypoint. This is why changing the
+port only requires `docker compose up` again, not an image rebuild: the substitution happens at container
+start, not at build time.
 
 ## Conventions
 

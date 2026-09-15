@@ -7,9 +7,13 @@ services:
       - ../:/var/www
       - ../public:/var/www/html
       - ../tmp/xdebug:/tmp/xdebug
+      - ./000-default.conf:/etc/apache2/sites-available/000-default.conf.template:ro
+      - ./auth_cas.conf:/etc/apache2/mods-available/auth_cas.conf.template:ro
     ports:
-      - "80:80"
-      - "443:443"
+      - "${APP_HTTP_PORT:-8080}:80"
+      - "${APP_HTTPS_PORT:-8443}:443"
+    environment:
+      - APP_HTTPS_PORT=${APP_HTTPS_PORT:-8443}
     depends_on:
       database:
         condition: service_healthy

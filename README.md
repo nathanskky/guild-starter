@@ -26,18 +26,18 @@ This brings up three services:
 
 | Service | Purpose | Ports (host:container) |
 |---|---|---|
-| `app` | Apache + PHP 8.5 | `8080:80`, `8443:443` |
+| `app` | Apache + PHP 8.5 | `8080:80`, `8443:443` by default (configurable, see below) |
 | `database` | MySQL 8.4 | `9906:3306` |
 | `mailcatcher` | Catches outbound mail; web UI | `1080:1080`, `1025:1025` |
 
 Mailcatcher's web UI is at `http://localhost:1080`.
 
-**A note on the app URL.** The `*:80` virtual host in `docker/000-default.conf` redirects to HTTPS but drops
-the port, so `http://localhost:8080` lands somewhere that will not resolve — use the HTTPS port directly and
-expect a self-signed certificate warning. The port also has to agree with `CASRootProxiedAs` in
-`docker/auth_cas.conf` for CAS authentication to work, and making that dynamic is still an open question.
-Check `docker/docker-compose.yml` and `docker/auth_cas.conf` for the values currently in effect rather than
-trusting a URL written in a doc. See [AGENTS.md](AGENTS.md#local-environment-docker) for detail.
+**A note on the app URL.** The app's host ports are set via `APP_HTTP_PORT`/`APP_HTTPS_PORT` in
+`docker/.env` (copy `docker/.env.example` to get started; defaults to `8080`/`8443` if the file is absent).
+The `*:80` virtual host redirects to HTTPS at whatever `APP_HTTPS_PORT` resolves to — go to the HTTPS port
+directly and expect a self-signed certificate warning. `docker/auth_cas.conf`'s `CASRootProxiedAs` is kept
+in sync with the same port automatically, since both files are rendered from templates at container start.
+See [AGENTS.md](AGENTS.md#local-environment-docker) for detail.
 
 ## Configuration
 

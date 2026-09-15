@@ -8,6 +8,7 @@ composer.lock
 *.env*
 !app.env.example
 !database.env.example
+!docker/.env.example
 
 .idea/
 
