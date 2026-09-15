@@ -39,10 +39,13 @@ root-level tooling or a shared root autoloader.
 **Run `composer check` before you change anything and keep that output as your baseline.** The working tree
 may carry in-progress work that is not yours. Your obligation is **no new failures** against that baseline.
 
+**Run composer through the container, not a host install** — see
+[Local environment (Docker)](#local-environment-docker) for why. From `docker/`:
+
 ```bash
-composer test          # phpunit
-composer format:check  # pint, PSR-12 style check (writes nothing)
-composer check         # test, then style check; stops at the first failure. No PHPStan here yet.
+docker compose exec app composer test          # phpunit
+docker compose exec app composer format:check  # pint, PSR-12 style check (writes nothing)
+docker compose exec app composer check         # test, then style check; stops at the first failure. No PHPStan here yet.
 ```
 
 **`composer test` fails right now, by design.** `tests/` is empty, and `phpunit.xml.dist` sets
@@ -135,8 +138,14 @@ installs the `intl`, `gd`, `xdebug`, `oci8`, `pdo_mysql`, `ldap`, and `zip` exte
 `rewrite`, `ssl`, `default-ssl`, and `auth_cas`.
 
 Compose bind-mounts `../:/var/www` **and** `../public:/var/www/html`, so edits inside the container write
-straight back to the host tree — and `vendor/` is host-resolved, meaning macOS-installed dependencies are
-executed by Debian PHP inside the container.
+straight back to the host tree — `vendor/` included.
+
+**Run `composer` through the container, not a host install** — `docker compose exec app composer install`
+(or `update`, `require`, `check`, etc.). The point of this Docker setup is that a developer machine doesn't
+need PHP or Composer installed at all; running composer on the host defeats that, and its platform check
+(PHP version + loaded extensions) validates against whatever runs it — the host's PHP, not the container's
+Debian PHP 8.5 with `intl`/`gd`/`xdebug`/`oci8`/`pdo_mysql`/`ldap`/`zip`. The bind mount means `vendor/`
+still ends up in the host tree either way — only where composer itself resolves and runs changes.
 
 **The `app` service's host ports are configurable, not hardcoded.** `docker/docker-compose.yml` reads
 `APP_HTTP_PORT` and `APP_HTTPS_PORT` from `docker/.env` (falling back to `8080`/`8443` if unset; copy
@@ -249,7 +258,7 @@ This package is the bottom of the dependency chain — nothing depends on it, so
 outward. The relevant direction is the reverse: **getting sibling changes to appear here.**
 
 **Local dev loop** — point this app at your working copy of a sibling. Add this *above* the existing VCS
-entries in `composer.json`, then `composer update guild/framework`:
+entries in `composer.json`, then `docker compose exec app composer update guild/framework`:
 
 ```json
 { "type": "path", "url": "../framework", "options": { "symlink": true } }
@@ -261,13 +270,13 @@ forgotten path repository can otherwise leak into a commit.
 **Real publish loop:**
 
 - **For `guild/framework`:** land the change on that repo's `develop` via a pull request, then
-  `composer update guild/framework` here. Merging is what matters — Composer resolves
+  `docker compose exec app composer update guild/framework` here. Merging is what matters — Composer resolves
   `https://github.com/nathanskky/guild-framework.git`, not your local path, so an unmerged feature branch is
   invisible. This package requires `dev-develop`, which tracks the tip of `develop`, so no `composer.json`
   edit is needed once the PR is merged.
 - **For `guild/rivet`:** required directly as `dev-develop`, same as `guild/framework` — land the change on
-  that repo's `develop` via a PR, then `composer update guild/rivet` here. No `composer.json` edit is
-  needed once the PR is merged.
+  that repo's `develop` via a PR, then `docker compose exec app composer update guild/rivet` here. No
+  `composer.json` edit is needed once the PR is merged.
 - **For `guild/access`:** reached only transitively through the framework, at whatever constraint
   `guild/framework` declares (a tag constraint, not a branch, and **tags are cut from `main`, not
   `develop`**). Getting a change here means: land it on that repo's `develop` via a PR, merge `develop` into

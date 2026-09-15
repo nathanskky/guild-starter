@@ -47,9 +47,9 @@ EXPOSE 80 443
 RUN apt-get update && \
     apt-get install -y git
 
-# Make composer available
-# TODO: verify this is still needed, as well as whether the command itself is correct
-COPY --from=composer /usr/bin/composer /usr/local/bin/composer
+# Make composer available, for running composer commands inside the container
+# (e.g. `docker compose exec app composer ...`) without needing it installed on the host
+COPY --from=composer:2 /usr/bin/composer /usr/local/bin/composer
 
 # Link sh to bash, so bash is used when opening the CLI from Docker Desktop
 # (This is a bit of a hack though, and not strictly necessary)
