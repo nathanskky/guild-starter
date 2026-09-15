@@ -27,9 +27,9 @@ root-level tooling or a shared root autoloader.
 |---|---|---|
 | `guild/starter` *(this one)* | `Guild\Starter\` | Runnable example app |
 | `guild/framework` | `Guild\Framework\` | Application kernel / DI container. Required as `dev-develop` (branch tip) |
-| `guild/access` | `Guild\Access\` | IU Login (OIDC) authentication. Required **directly** as `^1.0`, as well as transitively through the framework |
+| `guild/access` | `Guild\Access\` | IU Login (OIDC) authentication. Reached transitively through the framework; not required directly |
 | `iu/notifications` | `IU\Notifications\` | IU Notifications API client. Fully independent; not used here |
-| `guild/rivet` | `Guild\Rivet\` | IU Rivet Design System components, reached through the framework |
+| `guild/rivet` | `Guild\Rivet\` | IU Rivet Design System components, reached through the framework. Required **directly** as `dev-develop` too — Composer's minimum-stability check only exempts a *root* package's own dev-branch requirements, not a transitive one |
 
 `framework/AGENTS.md` documents the `ApplicationBuilder` API this app configures.
 `access/README.md` is the authoritative reference for OIDC config fields and redirect behavior.
@@ -79,6 +79,7 @@ This is the single most important convention to internalize here:
 | `config/app.php` | the built `Application` |
 | `config/authentication.php` | an `OidcConfiguration` **object** (checked with `instanceof`) |
 | `config/database.php` | a plain Eloquent connection **array** |
+| `config/rivet.php` | a `Guild\Rivet\Page\PageDefaults` **object**, passed to `addRivet()` |
 | `routes/routes.php` | a **closure**: `return static function (Router $router) { … };` |
 
 Any `ApplicationBuilder::add*` failure reading or validating one of these throws
@@ -189,6 +190,13 @@ patterns below are *observed*, not a style guide, and cover only what Pint doesn
   integration exists.
 - **`bin/`, `lib/`, `html/`, `tests/`, `public/css/`, and `public/js/` are all empty.** `html/` is
   gitignored and unused — Docker mounts `public/` to the container's docroot instead.
+- **Composer repositories are not transitive.** A sibling package declaring a VCS repository for one of
+  *its* dependencies does not make that dependency resolvable here — this package's own `composer.json`
+  needs the same VCS entry. Every package reached through `guild/framework` (`guild/access`, `guild/rivet`)
+  has its VCS repository declared here for that reason, even the ones not required directly. Losing sync
+  between a sibling's new dependency and this file's `repositories` list breaks resolution silently for
+  anyone whose `vendor/` still holds an old snapshot — `composer.lock` is gitignored here, so a fresh clone
+  gets no warning until it runs `composer update`.
 
 ## Branching and pull requests
 
@@ -251,16 +259,19 @@ forgotten path repository can otherwise leak into a commit.
   `https://github.com/nathanskky/guild-framework.git`, not your local path, so an unmerged feature branch is
   invisible. This package requires `dev-develop`, which tracks the tip of `develop`, so no `composer.json`
   edit is needed once the PR is merged.
-- **For `guild/access`:** the constraint here is `^1.0` — a *tag* constraint, not a branch — so a merge is
-  not enough, and **tags are cut from `main`, not `develop`**. The full path is: land the change on that
-  repo's `develop` via a PR, merge `develop` into `main` via its own PR, then tag `main`
-  (`git tag <next> && git push --tags`). Only then will `composer update guild/access` see it. Treat
-  "merged into `develop`" and "released" as two separate states, usually separated in time — while waiting
-  on a release, use the path-repository loop above. Note this package requires `guild/access` *directly* as
-  well as transitively through the framework, so both constraints must be satisfiable.
+- **For `guild/rivet`:** required directly as `dev-develop`, same as `guild/framework` — land the change on
+  that repo's `develop` via a PR, then `composer update guild/rivet` here. No `composer.json` edit is
+  needed once the PR is merged.
+- **For `guild/access`:** reached only transitively through the framework, at whatever constraint
+  `guild/framework` declares (a tag constraint, not a branch, and **tags are cut from `main`, not
+  `develop`**). Getting a change here means: land it on that repo's `develop` via a PR, merge `develop` into
+  `main` via its own PR, then tag `main` (`git tag <next> && git push --tags`) — only then does
+  `composer update guild/framework` pull the new `guild/access` in. Treat "merged into `develop`" and
+  "released" as two separate states, usually separated in time — while waiting on a release, use the
+  path-repository loop above (pointed at `../access`, applied to whichever sibling requires it directly).
 
-**Never hand-edit `vendor/guild/framework/` or `vendor/guild/access/`.** The next `composer install`
-reverts it, and the change never reaches the real package.
+**Never hand-edit `vendor/guild/framework/`, `vendor/guild/access/`, or `vendor/guild/rivet/`.** The next
+`composer install` reverts it, and the change never reaches the real package.
 
 If `composer update` fails with `Could not authenticate against github.com`, that is a local credential
 problem — Composer needs a valid GitHub token in `~/.composer/auth.json`. Note the mixed transports across

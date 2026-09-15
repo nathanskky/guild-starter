@@ -18,7 +18,7 @@ readonly class ExampleController
     {
         $html = $this->view->render('example/index.html.twig', [
             'title' => 'Example Page',
-            'message' => 'This is an example page rendered with Twig.',
+            'message' => 'This is an example page rendered with Twig through a Rivet page layout.',
         ]);
 
         return new HtmlResponse($html);

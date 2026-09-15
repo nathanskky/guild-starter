@@ -16,12 +16,16 @@
         {
             "type": "vcs",
             "url": "https://github.com/nathanskky/guild-access.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/nathanskky/guild-rivet.git"
         }
     ],
     "require": {
         "php": "~8.5.0",
         "guild/framework": "dev-develop",
-        "guild/access": "^1.0"
+        "guild/rivet": "dev-develop"
     },
     "require-dev": {
         "phpunit/phpunit": "^13.0",

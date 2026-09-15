@@ -1,2 +1,22 @@
-<h1>{{ title }}</h1>
-<p>{{ message }}</p>
+{# rvt_page also supports "sidebar" and "anchored_sidebar" layouts; see guild/rivet's README. #}
+{% rvt_page title=title heading=title layout="single_column" %}
+  <p>{{ message }}</p>
+
+  <h2 class="rvt-ts-23 rvt-m-top-lg">Try it out</h2>
+  {% rvt_accordion %}
+    {% rvt_accordion_panel label="What is this?" %}
+      <p>
+        This page is rendered through <code>guild/rivet</code>, IU's Rivet Design System
+        components for PHP. Expanding this panel is driven by Rivet's own JavaScript,
+        loaded automatically by <code>rvt_page</code>.
+      </p>
+    {% endrvt_accordion_panel %}
+    {% rvt_accordion_panel label="Where do I go from here?" %}
+      <p>
+        Edit this template, or replace <code>src/Example/</code> entirely — it exists only
+        to keep the example code in one identifiable place so it is easy to delete. See
+        <code>AGENTS.md</code> for what is and isn't safe to remove.
+      </p>
+    {% endrvt_accordion_panel %}
+  {% endrvt_accordion %}
+{% endrvt_page %}

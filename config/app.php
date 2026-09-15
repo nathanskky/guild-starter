@@ -17,5 +17,6 @@ return Application::configure($basePath)
     ->addRouting()
     ->addIlluminateDatabase()
     ->addTemplateEngine(TemplateEngine::Twig)
+    ->addRivet(require __DIR__ . '/rivet.php')
     ->enableAutoWiring()
     ->create();
