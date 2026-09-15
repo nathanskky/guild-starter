@@ -16,10 +16,7 @@ readonly class ExampleController
 
     public function index(ServerRequestInterface $request): HtmlResponse
     {
-        $html = $this->view->render('example/index.html.twig', [
-            'title' => 'Example Page',
-            'message' => 'This is an example page rendered with Twig through a Rivet page layout.',
-        ]);
+        $html = $this->view->render('example/index.html.twig');
 
         return new HtmlResponse($html);
     }
