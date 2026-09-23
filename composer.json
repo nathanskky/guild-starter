@@ -55,9 +55,9 @@
         ]
     },
     "scripts-descriptions": {
-        "test": "Run the test suite (fails if no tests run - tests/ is currently empty).",
+        "test": "Run the test suite (fails if no tests run, which is the case until the first test is written).",
         "format": "Auto-fix code style with Pint (PSR-12).",
         "format:check": "Check code style with Pint (PSR-12) without modifying files.",
-        "check": "Run tests then style check. No PHPStan here yet; see AGENTS.md."
+        "check": "Run tests then style check. There is no PHPStan configuration here; see AGENTS.md."
     }
 }
