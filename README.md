@@ -48,6 +48,7 @@ throughout:
 |---|---|
 | `config/app.php` | the built `Application` (the builder chain lives here) |
 | `config/authentication.php` | an `OidcConfiguration` object |
+| `config/authorization.php` | an `AuthorizationConfiguration` object |
 | `config/database.php` | an Eloquent connection array |
 | `routes/routes.php` | a closure receiving the `Router` |
 
@@ -60,6 +61,13 @@ are gitignored; the `.example` files are the committed templates.
 Two approaches are supported — OIDC through the front controller, or Apache `mod_auth_cas` with
 `.htaccess`. Neither is enabled out of the box. See
 [AGENTS.md](AGENTS.md#authentication-two-supported-approaches) for which to choose and what each requires.
+
+## Authorization
+
+Grouper groups mapped to roles and permissions, with administration pages at `/framework/authorization`.
+Wired but commented out in `config/app.php`; it needs one of the authentication approaches above, the
+Grouper settings `config/authorization.php` reads, and the framework's migrations. See
+[AGENTS.md](AGENTS.md#authorization).
 
 ## Tests
 

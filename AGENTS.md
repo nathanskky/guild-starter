@@ -72,7 +72,8 @@ public/index.php  →  bootstrap/app.php  →  config/app.php  →  Application:
 - `bootstrap/app.php` requires `vendor/autoload.php`, then sets PHP error display and the default timezone
   from `$_ENV['DISPLAY_ERRORS_ENABLED']` and `$_ENV['DEFAULT_TIMEZONE']`, then returns `config/app.php`.
 - `config/app.php` builds the application through the framework's fluent builder. As committed:
-  `->addRouting()->addIlluminateDatabase()->addTemplateEngine(TemplateEngine::Twig)->enableAutoWiring()->create()`.
+  `->addRouting()->addIlluminateDatabase()->addTemplateEngine(TemplateEngine::Twig)->addRivet(…)->enableAutoWiring()->create()`,
+  with `->addAuthorization(…)` present but commented out (see [Authorization](#authorization)).
 - `public/.htaccess` rewrites all requests to `index.php` (front-controller pattern).
 
 **Config is executable PHP that returns objects, arrays, or closures** — not config arrays across the board.
@@ -82,6 +83,7 @@ This is the single most important convention to internalize here:
 |---|---|
 | `config/app.php` | the built `Application` |
 | `config/authentication.php` | an `OidcConfiguration` **object** (checked with `instanceof`) |
+| `config/authorization.php` | an `AuthorizationConfiguration` **object**, read only when `addAuthorization()` is called |
 | `config/database.php` | a plain Eloquent connection **array** |
 | `config/rivet.php` | a `Guild\Rivet\Page\PageDefaults` **object**, passed to `addRivet()` |
 | `routes/routes.php` | a **closure**: `return static function (Router $router) { … };` |
@@ -117,8 +119,38 @@ container image used there ships with Apache CAS already set up and available to
 
 `docker/auth_cas.conf` and the `a2enmod auth_cas` step in `docker/app.Dockerfile` exist to support this path
 locally. **Do not delete them** — they are load-bearing in the image build, and this is a supported approach,
-not leftover cruft. `public/.htaccess` contains the `AuthType CAS` / `Require valid-user` lines needed to
-turn it on, commented out by default.
+not leftover cruft. To turn it on, add these two lines to the top of `public/.htaccess`; the committed
+file does not contain them:
+
+```apache
+AuthType CAS
+Require valid-user
+```
+
+### Authorization
+
+Resolves the signed-in user's IU Grouper groups to locally managed roles and permissions, and serves the
+framework's administration pages at `/framework/authorization`. **Off by default.** The pieces are all
+committed; turning it on is:
+
+1. **An identity source.** CAS (the `.htaccess` lines above) with `IdentitySource::Cas`, or OIDC
+   (`->addAuthentication()`, earlier in the chain) with `IdentitySource::Oidc`. Authorization never
+   authenticates anyone itself.
+2. **Uncomment `->addAuthorization(IdentitySource::Cas, AppPermission::class)`** in `config/app.php`, changing
+   the identity source to match step 1.
+3. **The environment `config/authorization.php` reads:** `GROUPER_SERVICE_URL`, `GROUPER_USERNAME`,
+   `GROUPER_STEM` (blank means the ACM default, `iu:roles:sys:acm`) and `AUTHORIZATION_SYSTEM_ADMIN_GROUP`
+   (the **ACM label** of the group whose members administer the app) in `app.env`, and `GROUPER_PASSWORD`
+   exported in your shell before `docker compose up` — `docker-compose.yml` passes it through so it is
+   never written to a file. With any of these blank the application fails at startup, naming the problem.
+4. **The framework's migrations**, run from this repo:
+   `docker compose exec app vendor/bin/phinx -c vendor/guild/framework/phinx.php migrate -e framework`.
+
+Then a member of the System Admin group reaches the administration pages through the **System settings**
+menu in the header (`rvt_page` adds it), registers groups by their ACM label, and grants roles the cases of
+`src/Authorization/AppPermission.php` — the application's permission catalog. Checks read
+`Gate::allows(AppPermission::ExampleView)` in PHP and `can('example.view')` in templates.
+`framework/AGENTS.md` covers the Gate, policies and the full `addAuthorization()` signature.
 
 ### Local environment (Docker)
 
@@ -279,12 +311,27 @@ forgotten path repository can otherwise leak into a commit.
 - **For `guild/access`:** reached only transitively through the framework, at whatever constraint
   `guild/framework` declares (a tag constraint, not a branch, and **tags are cut from `main`, not
   `develop`**). Getting a change here means: land it on that repo's `develop` via a PR, merge `develop` into
-  `main` via its own PR, then tag `main` (`git tag <next> && git push --tags`) — only then does
-  `composer update guild/framework` pull the new `guild/access` in. Treat "merged into `develop`" and
+  `main` via its own PR, then tag `main` (`git tag <next> && git push --tags`) — only then can
+  `composer update guild/framework guild/access` pull the new `guild/access` in. Treat "merged into `develop`" and
   "released" as two separate states, usually separated in time — while waiting on a release, use the
   path-repository loop above (pointed at `../access`, applied to whichever sibling requires it directly).
 
-**Never hand-edit `vendor/guild/framework/`, `vendor/guild/access/`, or `vendor/guild/rivet/`.** The next
+- **For `guild/grouper`:** transitive, like `guild/access`, at the framework's tag constraint, with tags
+  cut from `main`.
+
+**A partial update moves only the packages you name.** `composer update guild/framework` leaves every
+sibling at its locked version, so a framework change that raises its `guild/grouper` constraint fails to
+resolve, and one that needs newer `guild/rivet` code resolves but breaks at runtime (both sides track
+`dev-develop`, so Composer cannot see the dependency). Update the siblings together:
+
+```bash
+docker compose exec app composer update guild/framework guild/grouper guild/rivet guild/access
+```
+
+`--with-dependencies` also works, but moves third-party packages (Illuminate and the rest) as well.
+
+**Never hand-edit `vendor/guild/framework/`, `vendor/guild/access/`, `vendor/guild/rivet/`, or
+`vendor/guild/grouper/`.** The next
 `composer install` reverts it, and the change never reaches the real package.
 
 If `composer update` fails with `Could not authenticate against github.com`, that is a local credential
