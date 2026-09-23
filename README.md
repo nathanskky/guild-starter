@@ -3,26 +3,36 @@
 The runnable example application for the [Guild framework](https://github.com/nathanskky/guild-framework),
 and the starting point for new Guild apps.
 
-> **Developing here?** Read [AGENTS.md](AGENTS.md) first. It covers the boot flow, the two supported
-> authentication approaches, verification commands, conventions, and the known landmines. It is written for
-> AI coding agents but is the most complete developer documentation for this project.
+> **Developing here?** Read [AGENTS.md](AGENTS.md) first. It covers the boot flow, directory layout, the two
+> supported authentication approaches, authorization, verification commands, conventions, and the known
+> landmines. It is written for AI coding agents but is the most complete developer documentation for this
+> project.
 
 ## Requirements
 
-- PHP `~8.5.0`
-- Composer
-- Docker (for the local environment)
+- Docker
+
+PHP (`~8.5.0`) and Composer run inside the `app` container; neither needs to be installed on the host.
 
 ## Getting started
 
 ```bash
-composer install          # note: composer.lock is tracked here - see AGENTS.md
 cp app.env.example app.env
 cp database.env.example database.env
+cp docker/.env.example docker/.env        # optional: host ports, see below
 cd docker && docker compose up
 ```
 
-This brings up three services:
+Then, from `docker/` in a second terminal, install dependencies inside the container:
+
+```bash
+docker compose exec app composer install
+```
+
+`composer.lock` is gitignored, so the install resolves current versions of every dependency. The example
+page is then at `https://localhost:8443` (or your `APP_HTTPS_PORT`).
+
+The stack is three services:
 
 | Service | Purpose | Ports (host:container) |
 |---|---|---|
@@ -50,6 +60,7 @@ throughout:
 | `config/authentication.php` | an `OidcConfiguration` object |
 | `config/authorization.php` | an `AuthorizationConfiguration` object |
 | `config/database.php` | an Eloquent connection array |
+| `config/rivet.php` | a `PageDefaults` object: app title, navigation, footer links |
 | `routes/routes.php` | a closure receiving the `Router` |
 
 Environment variables come from Docker's `env_file:` entries (`app.env`, `database.env`) — **nothing in the
@@ -69,11 +80,25 @@ Wired but commented out in `config/app.php`; it needs one of the authentication 
 Grouper settings `config/authorization.php` reads, and the framework's migrations. See
 [AGENTS.md](AGENTS.md#authorization).
 
+`GROUPER_PASSWORD` is never written to a file. Export it in your shell before `docker compose up`, and
+`docker-compose.yml` passes it into the container; do not put it in `app.env` or `docker/.env`. The other
+`GROUPER_*` settings and `AUTHORIZATION_SYSTEM_ADMIN_GROUP` go in `app.env`, which `app.env.example` does not
+list.
+
+## Rivet
+
+Pages render through [guild/rivet](https://github.com/nathanskky/guild-rivet), IU's Rivet Design System
+components. `templates/example/index.html.twig` is a working example: `{% rvt_page %}` provides the layout
+and loads Rivet's CSS and JavaScript, and `config/rivet.php` sets the app title and navigation.
+
 ## Tests
 
+From `docker/`:
+
 ```bash
-composer test
+docker compose exec app composer test    # phpunit
+docker compose exec app composer check   # phpunit, then the Pint (PSR-12) style check
 ```
 
-`tests/` is currently empty, so this fails with `No tests executed!` on purpose rather than reporting a
-false pass. Writing the first test is the fix.
+There are no tests, so `composer test` fails with `No tests executed!` on purpose rather than reporting
+a false pass. Writing the first test, under `tests/`, is the fix.
