@@ -20,6 +20,10 @@
         {
             "type": "vcs",
             "url": "https://github.com/nathanskky/guild-rivet.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/nathanskky/guild-grouper.git"
         }
     ],
     "require": {

@@ -28,6 +28,7 @@ root-level tooling or a shared root autoloader.
 | `guild/starter` *(this one)* | `Guild\Starter\` | Runnable example app |
 | `guild/framework` | `Guild\Framework\` | Application kernel / DI container. Required as `dev-develop` (branch tip) |
 | `guild/access` | `Guild\Access\` | IU Login (OIDC) authentication. Reached transitively through the framework; not required directly |
+| `guild/grouper` | `Guild\Grouper\` | IU Grouper group-membership lookup, used by the framework's authorization layer. Reached transitively; not required directly, but its VCS repository is declared here (see Landmines) |
 | `iu/notifications` | `IU\Notifications\` | IU Notifications API client. Fully independent; not used here |
 | `guild/rivet` | `Guild\Rivet\` | IU Rivet Design System components, reached through the framework. Required **directly** as `dev-develop` too — Composer's minimum-stability check only exempts a *root* package's own dev-branch requirements, not a transitive one |
 
@@ -193,13 +194,11 @@ patterns below are *observed*, not a style guide, and cover only what Pint doesn
 - **The `OIDC_*` env vars are now documented in `app.env.example`** (`OIDC_ISSUER`, `OIDC_CLIENT_ID`,
   `OIDC_CLIENT_SECRET`, `OIDC_REDIRECT_URI`), but `OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` still ship
   blank there — an unset `$_ENV` key reads as `""`, which trips `OidcConfiguration`'s validation and throws
-  `OidcConfigurationException`. Enabling OIDC still means: the `->addAuthentication()` builder call, real
-  values for those two secrets in your local `app.env`, and (see below) a bound `LoggerInterface`.
-- **No `LoggerInterface` is bound in the container**, yet `AuthenticationServiceProvider` passes
-  `LoggerInterface::class` as a constructor argument. Autowiring cannot instantiate an interface, so an app
-  that enables authentication must bind a logger itself. The logger argument to
-  `OidcAuthenticationService` is optional — omitting it is fine — but the provider as written expects the
-  binding.
+  `OidcConfigurationException`. Enabling OIDC still means: the `->addAuthentication()` builder call and real
+  values for those two secrets in your local `app.env`.
+- **The framework binds a default `LoggerInterface`** — Monolog on the `framework` channel, writing through
+  `error_log()`, which in this image reaches Apache's `ErrorLog` and so `docker compose logs app`. Replace it
+  with `->withLogger()` on the builder. See `framework/AGENTS.md` for the AppKube caveat.
 - **Five `LDAP_*` keys (`app.env` and `app.env.example`) are read by no code.** Orphaned configuration,
   documented in the example file only for parity with the deployed `app.env`; don't assume an LDAP
   integration exists.
@@ -207,10 +206,10 @@ patterns below are *observed*, not a style guide, and cover only what Pint doesn
   gitignored and unused — Docker mounts `public/` to the container's docroot instead.
 - **Composer repositories are not transitive.** A sibling package declaring a VCS repository for one of
   *its* dependencies does not make that dependency resolvable here — this package's own `composer.json`
-  needs the same VCS entry. Every package reached through `guild/framework` (`guild/access`, `guild/rivet`)
-  has its VCS repository declared here for that reason, even the ones not required directly. Losing sync
-  between a sibling's new dependency and this file's `repositories` list breaks resolution silently for
-  anyone whose `vendor/` still holds an old snapshot — `composer.lock` is gitignored here, so a fresh clone
+  needs the same VCS entry. Every package reached through `guild/framework` (`guild/access`,
+  `guild/rivet`, `guild/grouper`) has its VCS repository declared here for that reason, even the ones not
+  required directly. Losing sync between a sibling's new dependency and this file's `repositories` list
+  breaks resolution silently for anyone whose `vendor/` still holds an old snapshot — `composer.lock` is gitignored here, so a fresh clone
   gets no warning until it runs `composer update`.
 
 ## Branching and pull requests
