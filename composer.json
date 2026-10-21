@@ -46,6 +46,20 @@
         }
     },
     "scripts": {
+        "post-create-project-cmd": [
+            "php -r \"copy('replacements/.gitignore.template', '.gitignore');\"",
+            "php -r \"copy('replacements/composer.json.template', 'composer.json');\"",
+            "php -r \"copy('replacements/phpunit.xml.dist.template', 'phpunit.xml.dist');\"",
+            "php -r \"copy('replacements/README.md.template', 'README.md');\"",
+            "php -r \"copy('app.env.example', 'app.env');\"",
+            "php -r \"copy('database.env.example', 'database.env');\"",
+            "php -r \"copy('docker/.env.example', 'docker/.env');\"",
+            "rm -rf replacements/",
+            "rm -rf AGENTS.md",
+            "rm -rf CLAUDE.md",
+            "rm -rf .git",
+            "git init --initial-branch=main"
+        ],
         "test": "phpunit",
         "format": "pint",
         "format:check": "pint --test",
