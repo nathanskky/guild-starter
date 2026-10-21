@@ -28,8 +28,8 @@
     ],
     "require": {
         "php": "~8.5.0",
-        "guild/framework": "dev-develop",
-        "guild/rivet": "dev-develop"
+        "guild/framework": "^1.0.1",
+        "guild/rivet": "^1.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^13.0",

@@ -7,11 +7,24 @@
         {
             "type": "vcs",
             "url": "https://github.com/nathanskky/guild-framework.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/nathanskky/guild-access.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/nathanskky/guild-rivet.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/nathanskky/guild-grouper.git"
         }
     ],
     "require": {
         "php": "~8.5.0",
-        "guild/framework": "^1.0"
+        "guild/framework": "^1.0.1",
+        "guild/rivet": "^1.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^13.0",

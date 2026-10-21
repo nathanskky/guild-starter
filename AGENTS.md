@@ -26,11 +26,11 @@ root-level tooling or a shared root autoloader.
 | Package | Namespace | Role |
 |---|---|---|
 | `guild/starter` *(this one)* | `Guild\Starter\` | Runnable example app |
-| `guild/framework` | `Guild\Framework\` | Application kernel / DI container. Required as `dev-develop` (branch tip) |
+| `guild/framework` | `Guild\Framework\` | Application kernel / DI container. Required as `^1.0.1` (tag constraint) |
 | `guild/access` | `Guild\Access\` | IU Login (OIDC) authentication. Reached transitively through the framework; not required directly |
 | `guild/grouper` | `Guild\Grouper\` | IU Grouper group-membership lookup, used by the framework's authorization layer. Reached transitively; not required directly, but its VCS repository is declared here (see Landmines) |
 | `iu/notifications` | `IU\Notifications\` | IU Notifications API client. Fully independent; not used here |
-| `guild/rivet` | `Guild\Rivet\` | IU Rivet Design System components, reached through the framework. Required **directly** as `dev-develop` too — Composer's minimum-stability check only exempts a *root* package's own dev-branch requirements, not a transitive one |
+| `guild/rivet` | `Guild\Rivet\` | IU Rivet Design System components, reached through the framework. Also required **directly** as `^1.0`, because `config/rivet.php` and the templates use it themselves |
 
 `framework/AGENTS.md` documents the `ApplicationBuilder` API this app configures.
 `access/README.md` is the authoritative reference for OIDC config fields and redirect behavior.
@@ -329,14 +329,12 @@ forgotten path repository can otherwise leak into a commit.
 
 **Real publish loop:**
 
-- **For `guild/framework`:** land the change on that repo's `develop` via a pull request, then
-  `docker compose exec app composer update guild/framework` here. Merging is what matters — Composer resolves
-  `https://github.com/nathanskky/guild-framework.git`, not your local path, so an unmerged feature branch is
-  invisible. This package requires `dev-develop`, which tracks the tip of `develop`, so no `composer.json`
-  edit is needed once the PR is merged.
-- **For `guild/rivet`:** required directly as `dev-develop`, same as `guild/framework` — land the change on
-  that repo's `develop` via a PR, then `docker compose exec app composer update guild/rivet` here. No
-  `composer.json` edit is needed once the PR is merged.
+- **For `guild/framework` and `guild/rivet`:** required directly at tag constraints, and **tags are cut
+  from `main`, not `develop`**. Land the change on that repo's `develop` via a pull request, merge
+  `develop` into `main`, tag `main`, then `docker compose exec app composer update guild/framework` (or
+  `guild/rivet`) here. Composer resolves the GitHub repository, not your local path, so neither an unmerged
+  feature branch nor an untagged merge is visible. Raise the constraint in `composer.json` when this app
+  needs code from the new tag.
 - **For `guild/access`:** reached only transitively through the framework, at whatever constraint
   `guild/framework` declares (a tag constraint, not a branch, and **tags are cut from `main`, not
   `develop`**). Getting a change here means: land it on that repo's `develop` via a PR, merge `develop` into
@@ -349,8 +347,7 @@ forgotten path repository can otherwise leak into a commit.
 
 **A partial update moves only the packages you name.** `composer update guild/framework` leaves every
 sibling at its locked version, so a framework change that raises its `guild/grouper` constraint fails to
-resolve, and one that needs newer `guild/rivet` code resolves but breaks at runtime (both sides track
-`dev-develop`, so Composer cannot see the dependency). Update the siblings together:
+resolve. Update the siblings together:
 
 ```bash
 docker compose exec app composer update guild/framework guild/grouper guild/rivet guild/access
