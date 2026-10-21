@@ -8,7 +8,28 @@ and the starting point for new Guild apps.
 > landmines. It is written for AI coding agents but is the most complete developer documentation for this
 > project.
 
-## Requirements
+## Creating a new app
+
+Requires [Composer](https://getcomposer.org/download/) and Docker on the host. Any PHP version Composer runs
+on will do: dependencies install inside the `app` container, not on the host.
+
+```bash
+composer create-project --no-install \
+  --repository='{"type":"vcs","url":"https://github.com/nathanskky/guild-starter.git"}' \
+  --remove-vcs \
+  guild/starter my-project
+cd my-project/docker && docker compose up
+```
+
+In a second terminal, from `my-project/docker/`:
+
+```bash
+docker compose exec app composer install
+```
+
+App: `https://localhost:8443`.
+
+## Requirements (developing the starter itself)
 
 - Docker
 

@@ -7,6 +7,9 @@ Guidance for AI coding agents (and new humans) working in this repository.
 `guild/starter` — the runnable example application for the Guild framework, and the reference for how a
 consuming app is wired. Namespace `Guild\Starter\`, autoloaded from `src/`. Unlike its siblings this is a
 `project`, not a `library`: it is meant to be run, and to be copied as the starting point for new apps.
+To scaffold a new app, use the `composer create-project` command in
+[README.md](README.md#creating-a-new-app); its `post-create-project-cmd` swaps in the `replacements/`
+templates, copies the `.env` examples, deletes this file, and runs `git init`.
 
 - **PHP:** `~8.5.0`
 - **Remote:** `git@github.com:nathanskky/guild-starter.git` (SSH), or
