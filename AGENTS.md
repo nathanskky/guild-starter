@@ -209,8 +209,11 @@ Component tags (`rvt_accordion`, …) nest inside it. `rivet/README.md` is the c
 ```bash
 cp docker/.env.example docker/.env        # optional: ports, OP_ENVIRONMENT_ID, personal overrides
 cd docker && ./up.sh                      # plain `docker compose up` when no OP_ENVIRONMENT_ID is set
-docker compose exec app composer install  # from docker/, once the stack is up
 ```
+
+`docker/docker-entrypoint.sh` runs `composer install` every time the `app` container starts, before
+Apache. A failed install is logged (`docker compose logs app`) but does not stop the container; rerun it
+with `docker compose exec app composer install`.
 
 Once the 1Password Environment is in use, the stack must always come up through `./up.sh`; see the
 landmine on recreation.

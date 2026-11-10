@@ -21,13 +21,7 @@ composer create-project --no-install \
 cd my-project/docker && docker compose up
 ```
 
-In a second terminal, from `my-project/docker/`:
-
-```bash
-docker compose exec app composer install
-```
-
-App: `https://localhost:8443`.
+The `app` container runs `composer install` each time it starts. App: `https://localhost:8443`.
 
 ## Requirements (developing the starter itself)
 
@@ -42,14 +36,8 @@ cp docker/.env.example docker/.env        # optional: host ports, 1Password, per
 cd docker && ./up.sh
 ```
 
-Then, from `docker/` in a second terminal, install dependencies inside the container:
-
-```bash
-docker compose exec app composer install
-```
-
-`composer.lock` is gitignored, so the install resolves current versions of every dependency. The example
-page is then at `https://localhost:8443` (or your `APP_HTTPS_PORT`).
+The `app` container runs `composer install` each time it starts, before Apache. `composer.lock` is
+gitignored, so the first install resolves current versions of every dependency. The example page is at `https://localhost:8443` (or your `APP_HTTPS_PORT`).
 
 The stack is three services:
 

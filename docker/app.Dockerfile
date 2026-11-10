@@ -33,7 +33,8 @@ RUN a2enmod auth_cas
 RUN apt-get update && \
     apt-get install -y gettext-base
 
-# Copy the entrypoint script that renders the bind-mounted config templates before Apache starts
+# Copy the entrypoint script that renders the bind-mounted config templates and runs
+# `composer install` before Apache starts
 COPY ./docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
@@ -58,6 +59,7 @@ RUN ln -sf /bin/bash /bin/sh
 # Set the default working directory when opening an interactive shell
 WORKDIR /var/www
 
-# Render the bind-mounted config templates, then hand off to the base image's normal entrypoint
+# Render the bind-mounted config templates and install dependencies, then hand off to the base
+# image's normal entrypoint
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["apache2-foreground"]
