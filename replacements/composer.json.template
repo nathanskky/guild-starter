@@ -27,6 +27,7 @@
         "guild/rivet": "^1.0"
     },
     "require-dev": {
+        "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^13.0",
         "laravel/pint": "^1.32"
     },
@@ -42,15 +43,18 @@
     },
     "scripts": {
         "test": "phpunit",
+        "analyse": "phpstan analyse",
         "format": "pint",
         "format:check": "pint --test",
         "check": [
-            "@test",
-            "@format:check"
+            "@format:check",
+            "@analyse",
+            "@test"
         ]
     },
     "scripts-descriptions": {
         "test": "Run the test suite (fails if no tests run, which is the case until the first test is written).",
+        "analyse": "Run PHPStan static analysis. See phpstan.neon file for config.",
         "format": "Auto-fix code style with Pint (PSR-12).",
         "format:check": "Check code style with Pint (PSR-12) without modifying files.",
         "check": "Run tests then style check. There is no PHPStan configuration here; see AGENTS.md."
