@@ -86,7 +86,32 @@ throughout:
 
 Environment variables come from Docker's `env_file:` entries (`app.env`, `database.env`) — **nothing in the
 code parses a `.env` file**, so running outside Docker means running with no environment. Both `.env` files
-are gitignored; the `.example` files are the committed templates.
+are gitignored; the `.example` files are the committed templates. Secrets are the exception and never go in
+either file; see below.
+
+## Secrets
+
+Secrets never live in a file. They live in 1Password. The committed `secrets.env` holds only `op://`
+references to them, and `op run` resolves those references when the stack starts:
+
+```bash
+cd docker && op run --env-file=../secrets.env -- docker compose up
+```
+
+`docker-compose.yml` passes `OIDC_CLIENT_SECRET`, `GROUPER_PASSWORD`, `MAIL_PASSWORD` and `LDAP_PASSWORD`
+from that environment into the `app` container, where PHP reads them from `$_ENV` like any other setting.
+It requires the [1Password CLI](https://developer.1password.com/docs/cli/) with desktop-app integration
+turned on.
+
+Every reference in `secrets.env` ships commented out, and every uncommented one must resolve or `op run`
+refuses to start. Uncomment a line when you enable the feature that needs it, and point it at your app's
+vault and item. Never put a value there: the file is committed, and `op run` passes a plain value through
+unchanged.
+
+Until a feature needs a secret, plain `docker compose up` works. Once you use `op run`, keep using it to
+bring the stack up. A plain `docker compose up` sees blank secrets, treats that as a configuration change,
+and recreates `app` without them. `docker compose exec`, `restart` and `stop` don't recreate the
+container, so they need no `op run`.
 
 ## Authentication
 
@@ -101,8 +126,7 @@ Wired but commented out in `config/app.php`; it needs one of the authentication 
 Grouper settings `config/authorization.php` reads, and the framework's migrations. See
 [AGENTS.md](AGENTS.md#authorization).
 
-`GROUPER_PASSWORD` is never written to a file. Export it in your shell before `docker compose up`, and
-`docker-compose.yml` passes it into the container; do not put it in `app.env` or `docker/.env`. The other
+`GROUPER_PASSWORD` is a secret: reference it in `secrets.env` (see [Secrets](#secrets)). The other
 `GROUPER_*` settings and `AUTHORIZATION_SYSTEM_ADMIN_GROUP` go in `app.env`, which `app.env.example` does not
 list.
 

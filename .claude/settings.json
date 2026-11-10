@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "deny": [
+      "Bash(op)",
+      "Bash(op *)",
+      "Bash(docker inspect *)",
+      "Bash(docker container inspect *)",
+      "Bash(docker compose config*)",
+      "Bash(docker-compose config*)",
+      "Bash(docker compose exec * env)",
+      "Bash(docker compose exec * env *)",
+      "Bash(docker compose exec * printenv*)",
+      "Bash(docker compose exec * php -i*)",
+      "Bash(docker compose exec * php --info*)",
+      "Bash(docker exec * env)",
+      "Bash(docker exec * env *)",
+      "Bash(docker exec * printenv*)",
+      "Bash(*/proc/*/environ*)",
+      "Bash(printenv*)"
+    ]
+  }
+}

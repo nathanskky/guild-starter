@@ -14,15 +14,19 @@ services:
       - "${APP_HTTPS_PORT:-8443}:443"
     environment:
       - APP_HTTPS_PORT=${APP_HTTPS_PORT:-8443}
-      # GROUPER_PASSWORD alone is substituted from YOUR SHELL. It is deliberately
-      # absent from app.env and docker/.env -- compose reads both, so a value in
-      # either is a credential sitting on disk. The other GROUPER_* settings are
-      # ordinary config and live in app.env.
-      # Export it before `docker compose up`; see README.
-      # An empty default is used rather than the required form (:?) so the stack
-      # still starts without Grouper configured; the application fails loudly when
-      # authorization is enabled and this is blank.
+      # Secrets are substituted from the environment of the process running
+      # compose, never from a file. `op run --env-file=../secrets.env -- docker
+      # compose up` resolves them from 1Password; see secrets.env and README.
+      # They are deliberately absent from app.env and docker/.env -- compose reads
+      # both, so a value in either is a credential sitting on disk. These entries
+      # also override any stale copy left in app.env.
+      # Empty defaults rather than the required form (:?) let the stack start
+      # without them; the application fails loudly when a feature that needs one
+      # is enabled and it is blank.
+      - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:-}
       - GROUPER_PASSWORD=${GROUPER_PASSWORD:-}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+      - LDAP_PASSWORD=${LDAP_PASSWORD:-}
     depends_on:
       database:
         condition: service_healthy

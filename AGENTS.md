@@ -91,6 +91,7 @@ public/index.php  →  bootstrap/app.php  →  config/app.php  →  Application:
 | `public/` | docroot: `index.php` and `.htaccess` |
 | `docker/` | compose file, Dockerfile, entrypoint, Apache config templates, `.env.example` for host ports |
 | `app.env.example`, `database.env.example` | committed templates for the gitignored `app.env` / `database.env` |
+| `secrets.env` | committed 1Password `op://` references for the secrets; never values (see [Secrets](#secrets)) |
 | `tmp/` | gitignored runtime data: MySQL data (`tmp/mysql`) and Xdebug output (`tmp/xdebug`) |
 
 **Config is executable PHP that returns objects, arrays, or closures** — not config arrays across the board.
@@ -113,6 +114,29 @@ env vars come from Docker's `env_file:` entries (`app.env`, `database.env`). Run
 no environment at all. `app.env.example` and `database.env.example` are the committed templates; the real
 `app.env` / `database.env` are gitignored — never copy real values back into the `.example` files.
 
+### Secrets
+
+**Secrets never live in a file, and agents must not try to read them.** `OIDC_CLIENT_SECRET`,
+`GROUPER_PASSWORD`, `MAIL_PASSWORD` and `LDAP_PASSWORD` stay in 1Password. The committed `secrets.env`
+holds only `op://` references, all commented out until a feature needs them. The developer starts the
+stack with:
+
+```bash
+cd docker && op run --env-file=../secrets.env -- docker compose up
+```
+
+`op run` resolves the references into its child's environment. `docker-compose.yml` then substitutes each
+secret into the `app` container's `environment:` with a blank default, and PHP reads it from `$_ENV`. Those
+`environment:` entries also override `app.env`, so a stale secret left in an old `app.env` is ignored.
+
+- Never add a secret to `app.env`, `database.env`, `docker/.env`, or any `.example` file.
+- Never write a value into `secrets.env`; `op run` passes plain values through, and the file is committed.
+- Never run commands that print a secret: `op read`, `env`/`printenv` in the container, `docker inspect`, `docker compose config`. `.claude/settings.json` denies these for Claude Code.
+- When a secret is missing, tell the developer which `secrets.env` line to fill in, then stop.
+
+Adding a new secret takes three edits: a commented reference in `secrets.env`, an `environment:` entry
+`- NAME=${NAME:-}` in `docker-compose.yml`, and the `$_ENV['NAME']` read in `config/`.
+
 ### Authentication: two supported approaches
 
 Both are legitimate. Which one fits depends on how the app is built and where it is deployed.
@@ -122,8 +146,8 @@ that route everything through `public/index.php`. To enable it you need all thre
 
 - `->addAuthentication()` in the builder chain in `config/app.php`
 - `config/authentication.php` returning a valid `OidcConfiguration`
-- real values for the `OIDC_*` env vars it reads (see Landmines — they're in `app.env.example`, but the
-  client ID and secret ship blank)
+- real values for the `OIDC_*` env vars it reads: `OIDC_CLIENT_ID` in `app.env` (it ships blank), and
+  `OIDC_CLIENT_SECRET` from 1Password through `secrets.env` (see [Secrets](#secrets))
 
 Middleware is attached in routing code, not in config. `routes/routes.php` carries a commented example:
 `// $router->lazyMiddleware(OidcAuthenticationMiddleware::class);` applies it to every route; it can also be
@@ -158,8 +182,8 @@ committed; turning it on is:
 3. **The environment `config/authorization.php` reads:** `GROUPER_SERVICE_URL`, `GROUPER_USERNAME`,
    `GROUPER_STEM` (blank means the ACM default, `iu:roles:sys:acm`) and `AUTHORIZATION_SYSTEM_ADMIN_GROUP`
    (the **ACM label** of the group whose members administer the app) in `app.env` — `app.env.example` does
-   not list them, so add them by hand — and `GROUPER_PASSWORD` exported in your shell before
-   `docker compose up`; `docker-compose.yml` passes it through so it is never written to a file. With any of these blank the application fails at startup, naming the problem.
+   not list them, so add them by hand — and `GROUPER_PASSWORD` referenced in `secrets.env` (see
+   [Secrets](#secrets)). With any of these blank the application fails at startup, naming the problem.
 4. **The framework's migrations**, run from this repo:
    `docker compose exec app vendor/bin/phinx -c vendor/guild/framework/phinx.php migrate -e framework`.
 
@@ -184,9 +208,11 @@ Component tags (`rvt_accordion`, …) nest inside it. `rivet/README.md` is the c
 
 ```bash
 cp app.env.example app.env && cp database.env.example database.env   # compose refuses to start without both
-cd docker && docker compose up
+cd docker && docker compose up                                        # or `op run --env-file=../secrets.env -- docker compose up`
 docker compose exec app composer install                              # from docker/, once the stack is up
 ```
+
+Once any secret is in use, the stack must always come up through `op run`; see the landmine on recreation.
 
 Three services, from `docker/docker-compose.yml`:
 
@@ -255,16 +281,21 @@ patterns below are *observed*, not a style guide, and cover only what Pint doesn
   without also adding `addAuthentication()` fails at dispatch: autowiring reaches
   `OidcAuthenticationMiddleware::__construct(OidcConfiguration, ?LoggerInterface)` and cannot construct
   `OidcConfiguration`, whose constructor requires three strings.
-- **`OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` ship blank in `app.env.example`** (alongside `OIDC_ISSUER`
-  and `OIDC_REDIRECT_URI`, which carry example values). A blank value reads as `""`, which trips
-  `OidcConfiguration`'s validation and throws `OidcConfigurationException`. Enabling OIDC means the
-  `->addAuthentication()` builder call and real values for those two secrets in your local `app.env`.
+- **`OIDC_CLIENT_ID` ships blank in `app.env.example`, and `OIDC_CLIENT_SECRET` is blank until
+  `secrets.env` references it.** A blank value reads as `""`, which trips `OidcConfiguration`'s validation
+  and throws `OidcConfigurationException`. Enabling OIDC means the `->addAuthentication()` builder call, a
+  real client ID in your local `app.env`, and the secret's reference uncommented in `secrets.env`.
+- **A plain `docker compose up` after an `op run` one recreates `app` with blank secrets.** Compose sees the
+  secrets' blank defaults as a configuration change and rebuilds the container, so auth or Grouper then
+  fails at startup. Bring the stack up through `op run` every time; `exec`, `restart` and `stop` are safe.
+- **`op run` refuses to start if any uncommented reference in `secrets.env` fails to resolve.** Each one
+  must name a vault, item and field the developer can read.
 - **The framework binds a default `LoggerInterface`** — Monolog on the `framework` channel, writing through
   `error_log()`, which in this image reaches Apache's `ErrorLog` and so `docker compose logs app`. Replace it
   with `->withLogger()` on the builder. See `framework/AGENTS.md` for the AppKube caveat.
-- **Five `LDAP_*` keys (`app.env` and `app.env.example`) are read by no code.** Orphaned configuration,
-  documented in the example file only for parity with the deployed `app.env`; don't assume an LDAP
-  integration exists.
+- **Five `LDAP_*` keys are read by no code:** four in `app.env.example`, plus `LDAP_PASSWORD` in
+  `secrets.env`. Orphaned configuration, kept only for parity with the deployed environment; don't assume
+  an LDAP integration exists.
 - **`bin/`, `lib/`, `html/`, `tests/`, `public/css/`, and `public/js/` are empty.** Git tracks none of them,
   so a fresh clone has none of them either; create `tests/` with the first test. `html/` is gitignored and
   unused — Docker mounts `public/` to the container's docroot instead.

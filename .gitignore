@@ -9,6 +9,7 @@ composer.lock
 !app.env.example
 !database.env.example
 !docker/.env.example
+!secrets.env
 
 .idea/
 
