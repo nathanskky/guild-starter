@@ -89,9 +89,8 @@ public/index.php  →  bootstrap/app.php  →  config/app.php  →  Application:
 | `src/` | application code, `Guild\Starter\` — `Example/` (the example controller) and `Authorization/AppPermission.php` (the permission catalog) |
 | `templates/` | Twig templates; `example/index.html.twig` is the example page |
 | `public/` | docroot: `index.php` and `.htaccess` |
-| `docker/` | compose file, Dockerfile, entrypoint, Apache config templates, `.env.example` for host ports |
-| `app.env.example`, `database.env.example` | committed templates for the gitignored `app.env` / `database.env` |
-| `secrets.env` | committed 1Password `op://` references for the secrets; never values (see [Secrets](#secrets)) |
+| `docker/` | compose file (which lists every app setting), Dockerfile, entrypoint, Apache config templates, `.env.example` for host ports, the 1Password Environment ID and personal overrides |
+| `docker/up.sh` | starts the stack under `op run`, loading settings and secrets from a 1Password Environment (see [Environment and secrets](#environment-and-secrets)) |
 | `tmp/` | gitignored runtime data: MySQL data (`tmp/mysql`) and Xdebug output (`tmp/xdebug`) |
 
 **Config is executable PHP that returns objects, arrays, or closures** — not config arrays across the board.
@@ -109,33 +108,33 @@ This is the single most important convention to internalize here:
 Any `ApplicationBuilder::add*` failure reading or validating one of these throws
 `Guild\Framework\Exception\ConfigurationException` rather than letting the raw parse/type error propagate.
 
-**There is no `.env` file parsing anywhere in the code.** `bootstrap/app.php` reads `$_ENV` directly, and
-env vars come from Docker's `env_file:` entries (`app.env`, `database.env`). Running outside Docker means
-no environment at all. `app.env.example` and `database.env.example` are the committed templates; the real
-`app.env` / `database.env` are gitignored — never copy real values back into the `.example` files.
+### Environment and secrets
 
-### Secrets
+**There is no `.env` file parsing anywhere in the code.** PHP reads `$_ENV` directly, so running outside
+Docker means no environment at all. **The `app` service's `environment:` list in
+`docker/docker-compose.yml` is the complete list of settings the application reads**, each written as
+`- NAME=${NAME:-default}`. Compose fills each one from the first source that sets it:
 
-**Secrets never live in a file, and agents must not try to read them.** `OIDC_CLIENT_SECRET`,
-`GROUPER_PASSWORD`, `MAIL_PASSWORD` and `LDAP_PASSWORD` stay in 1Password. The committed `secrets.env`
-holds only `op://` references, all commented out until a feature needs them. The developer starts the
-stack with:
+1. The app's 1Password Environment, which `docker/up.sh` loads with
+   `op run --environment "$OP_ENVIRONMENT_ID" -- docker compose up`. It holds shared settings as visible
+   variables and secrets as hidden ones.
+2. `docker/.env`, which is gitignored and holds personal, non-secret overrides and the Environment ID.
+3. The committed default.
 
-```bash
-cd docker && op run --env-file=../secrets.env -- docker compose up
-```
+The `database` service takes its credentials from the same `MYSQL_*` names, so the two always agree.
+With no `OP_ENVIRONMENT_ID`, `up.sh` runs plain `docker compose up` and the defaults apply. The
+Environment ID is not a secret; it grants nothing without access to the Environment.
 
-`op run` resolves the references into its child's environment. `docker-compose.yml` then substitutes each
-secret into the `app` container's `environment:` with a blank default, and PHP reads it from `$_ENV`. Those
-`environment:` entries also override `app.env`, so a stale secret left in an old `app.env` is ignored.
+**Secrets never live in a file, and agents must not try to read them.** `OIDC_CLIENT_SECRET` and
+`GROUPER_PASSWORD` come only from the 1Password Environment.
 
-- Never add a secret to `app.env`, `database.env`, `docker/.env`, or any `.example` file.
-- Never write a value into `secrets.env`; `op run` passes plain values through, and the file is committed.
-- Never run commands that print a secret: `op read`, `env`/`printenv` in the container, `docker inspect`, `docker compose config`. `.claude/settings.json` denies these for Claude Code.
-- When a secret is missing, tell the developer which `secrets.env` line to fill in, then stop.
+- Never give a secret a default in `docker-compose.yml`, or a value in `docker/.env` or any other file.
+- Never run commands that print a secret: `op` in any form, `env`/`printenv` in the container, `docker inspect`, `docker compose config`. `.claude/settings.json` denies these for Claude Code.
+- When a setting or secret is missing, tell the developer which variable to add to the 1Password Environment, then stop.
 
-Adding a new secret takes three edits: a commented reference in `secrets.env`, an `environment:` entry
-`- NAME=${NAME:-}` in `docker-compose.yml`, and the `$_ENV['NAME']` read in `config/`.
+Adding a setting takes two edits: a line in the `environment:` list and its `$_ENV['NAME']` read in
+`config/`. A secret also needs its value added to the 1Password Environment by the developer, and its
+line must use a blank default: `- NAME=${NAME:-}`.
 
 ### Authentication: two supported approaches
 
@@ -146,8 +145,9 @@ that route everything through `public/index.php`. To enable it you need all thre
 
 - `->addAuthentication()` in the builder chain in `config/app.php`
 - `config/authentication.php` returning a valid `OidcConfiguration`
-- real values for the `OIDC_*` env vars it reads: `OIDC_CLIENT_ID` in `app.env` (it ships blank), and
-  `OIDC_CLIENT_SECRET` from 1Password through `secrets.env` (see [Secrets](#secrets))
+- real values for the `OIDC_*` env vars it reads, in the 1Password Environment: `OIDC_CLIENT_ID` and
+  `OIDC_REDIRECT_URI` (their defaults are blank and a placeholder), and the secret `OIDC_CLIENT_SECRET`
+  (see [Environment and secrets](#environment-and-secrets))
 
 Middleware is attached in routing code, not in config. `routes/routes.php` carries a commented example:
 `// $router->lazyMiddleware(OidcAuthenticationMiddleware::class);` applies it to every route; it can also be
@@ -181,9 +181,9 @@ committed; turning it on is:
    the identity source to match step 1.
 3. **The environment `config/authorization.php` reads:** `GROUPER_SERVICE_URL`, `GROUPER_USERNAME`,
    `GROUPER_STEM` (blank means the ACM default, `iu:roles:sys:acm`) and `AUTHORIZATION_SYSTEM_ADMIN_GROUP`
-   (the **ACM label** of the group whose members administer the app) in `app.env` — `app.env.example` does
-   not list them, so add them by hand — and `GROUPER_PASSWORD` referenced in `secrets.env` (see
-   [Secrets](#secrets)). With any of these blank the application fails at startup, naming the problem.
+   (the **ACM label** of the group whose members administer the app), plus the secret `GROUPER_PASSWORD`,
+   all in the 1Password Environment (see [Environment and secrets](#environment-and-secrets)). With any of
+   these blank except `GROUPER_STEM`, the application fails at startup, naming the problem.
 4. **The framework's migrations**, run from this repo:
    `docker compose exec app vendor/bin/phinx -c vendor/guild/framework/phinx.php migrate -e framework`.
 
@@ -207,12 +207,13 @@ Component tags (`rvt_accordion`, …) nest inside it. `rivet/README.md` is the c
 ### Local environment (Docker)
 
 ```bash
-cp app.env.example app.env && cp database.env.example database.env   # compose refuses to start without both
-cd docker && docker compose up                                        # or `op run --env-file=../secrets.env -- docker compose up`
-docker compose exec app composer install                              # from docker/, once the stack is up
+cp docker/.env.example docker/.env        # optional: ports, OP_ENVIRONMENT_ID, personal overrides
+cd docker && ./up.sh                      # plain `docker compose up` when no OP_ENVIRONMENT_ID is set
+docker compose exec app composer install  # from docker/, once the stack is up
 ```
 
-Once any secret is in use, the stack must always come up through `op run`; see the landmine on recreation.
+Once the 1Password Environment is in use, the stack must always come up through `./up.sh`; see the
+landmine on recreation.
 
 Three services, from `docker/docker-compose.yml`:
 
@@ -281,21 +282,18 @@ patterns below are *observed*, not a style guide, and cover only what Pint doesn
   without also adding `addAuthentication()` fails at dispatch: autowiring reaches
   `OidcAuthenticationMiddleware::__construct(OidcConfiguration, ?LoggerInterface)` and cannot construct
   `OidcConfiguration`, whose constructor requires three strings.
-- **`OIDC_CLIENT_ID` ships blank in `app.env.example`, and `OIDC_CLIENT_SECRET` is blank until
-  `secrets.env` references it.** A blank value reads as `""`, which trips `OidcConfiguration`'s validation
-  and throws `OidcConfigurationException`. Enabling OIDC means the `->addAuthentication()` builder call, a
-  real client ID in your local `app.env`, and the secret's reference uncommented in `secrets.env`.
-- **A plain `docker compose up` after an `op run` one recreates `app` with blank secrets.** Compose sees the
-  secrets' blank defaults as a configuration change and rebuilds the container, so auth or Grouper then
-  fails at startup. Bring the stack up through `op run` every time; `exec`, `restart` and `stop` are safe.
-- **`op run` refuses to start if any uncommented reference in `secrets.env` fails to resolve.** Each one
-  must name a vault, item and field the developer can read.
+- **`OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` are blank until the 1Password Environment defines them.** A
+  blank value reads as `""`, which trips `OidcConfiguration`'s validation and throws
+  `OidcConfigurationException`. Enabling OIDC means the `->addAuthentication()` builder call and both
+  values in the Environment.
+- **A plain `docker compose up` after a `./up.sh` one recreates `app` without the Environment's values.**
+  Compose sees the defaults as a configuration change and rebuilds the container, so auth or Grouper then
+  fails at startup. Bring the stack up through `./up.sh` every time; `exec`, `restart` and `stop` are safe.
+- **Variable names in the 1Password Environment must match `docker-compose.yml` exactly.** Compose passes
+  only the names it lists, so a misspelled or extra variable never reaches the container.
 - **The framework binds a default `LoggerInterface`** — Monolog on the `framework` channel, writing through
   `error_log()`, which in this image reaches Apache's `ErrorLog` and so `docker compose logs app`. Replace it
   with `->withLogger()` on the builder. See `framework/AGENTS.md` for the AppKube caveat.
-- **Five `LDAP_*` keys are read by no code:** four in `app.env.example`, plus `LDAP_PASSWORD` in
-  `secrets.env`. Orphaned configuration, kept only for parity with the deployed environment; don't assume
-  an LDAP integration exists.
 - **`bin/`, `lib/`, `html/`, `tests/`, `public/css/`, and `public/js/` are empty.** Git tracks none of them,
   so a fresh clone has none of them either; create `tests/` with the first test. `html/` is gitignored and
   unused — Docker mounts `public/` to the container's docroot instead.

@@ -12,28 +12,41 @@ services:
     ports:
       - "${APP_HTTP_PORT:-8080}:80"
       - "${APP_HTTPS_PORT:-8443}:443"
+    # Every setting the application reads from $_ENV, and nothing else. Each
+    # ${NAME:-default} takes the first value set from: the 1Password Environment
+    # (when started with ./up.sh), then docker/.env, then the default here.
+    # To add a setting, add a line here and its $_ENV read in config/.
     environment:
       - APP_HTTPS_PORT=${APP_HTTPS_PORT:-8443}
-      # Secrets are substituted from the environment of the process running
-      # compose, never from a file. `op run --env-file=../secrets.env -- docker
-      # compose up` resolves them from 1Password; see secrets.env and README.
-      # They are deliberately absent from app.env and docker/.env -- compose reads
-      # both, so a value in either is a credential sitting on disk. These entries
-      # also override any stale copy left in app.env.
-      # Empty defaults rather than the required form (:?) let the stack start
-      # without them; the application fails loudly when a feature that needs one
-      # is enabled and it is blank.
+      - DEFAULT_TIMEZONE=${DEFAULT_TIMEZONE:-UTC}
+      - DISPLAY_ERRORS_ENABLED=${DISPLAY_ERRORS_ENABLED:-true}
+      # Database: the defaults match the database service below.
+      - MYSQL_HOST=${MYSQL_HOST:-database}
+      - MYSQL_PORT=${MYSQL_PORT:-3306}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-app_database}
+      - MYSQL_USERNAME=${MYSQL_USERNAME:-app_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-app_password}
+      # OIDC, used with ->addAuthentication().
+      - OIDC_ISSUER=${OIDC_ISSUER:-https://idp.login.iu.edu}
+      - OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-}
+      - OIDC_REDIRECT_URI=${OIDC_REDIRECT_URI:-https://your-app.webapps.iu.edu/signin-oidc}
+      # Grouper, used with ->addAuthorization(). A blank GROUPER_STEM means the
+      # ACM default; AUTHORIZATION_SYSTEM_ADMIN_GROUP is an ACM label.
+      - GROUPER_SERVICE_URL=${GROUPER_SERVICE_URL:-}
+      - GROUPER_USERNAME=${GROUPER_USERNAME:-}
+      - GROUPER_STEM=${GROUPER_STEM:-}
+      - AUTHORIZATION_SYSTEM_ADMIN_GROUP=${AUTHORIZATION_SYSTEM_ADMIN_GROUP:-}
+      # Secrets. They come only from the 1Password Environment via ./up.sh:
+      # never give them a default here or a value in docker/.env, both of which
+      # put a credential in a file. Blank, the stack still starts; the
+      # application fails loudly when a feature that needs one is enabled.
       - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:-}
       - GROUPER_PASSWORD=${GROUPER_PASSWORD:-}
-      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
-      - LDAP_PASSWORD=${LDAP_PASSWORD:-}
     depends_on:
       database:
         condition: service_healthy
       mailcatcher:
         condition: service_started
-    env_file:
-      - ../app.env
   database:
     image: mysql:8.4
     expose:
@@ -42,8 +55,13 @@ services:
       - "9906:3306"
     volumes:
       - ../tmp/mysql:/var/lib/mysql
-    env_file:
-      - ../database.env
+    # A throwaway local database. Its credentials follow the app's MYSQL_*
+    # settings above, so overriding one keeps both services in step.
+    environment:
+      - MYSQL_ROOT_PASSWORD=root
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-app_database}
+      - MYSQL_USER=${MYSQL_USERNAME:-app_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-app_password}
     healthcheck:
       test: [ "CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot" ]
       interval: 5s

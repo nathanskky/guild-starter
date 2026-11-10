@@ -6,7 +6,7 @@ declare(strict_types=1);
  * Configuration for addAuthorization(): everything that varies by deployment.
  * Read only when addAuthorization() is called in config/app.php.
  *
- * GROUPER_PASSWORD comes from 1Password through `op run` (see secrets.env), never
+ * GROUPER_PASSWORD comes from a 1Password Environment (see docker/up.sh), never
  * from a file. A blank GROUPER_STEM falls back to the ACM default rather than
  * meaning "unscoped", which would be an institution-wide lookup of several
  * seconds per user.

@@ -38,10 +38,8 @@ PHP (`~8.5.0`) and Composer run inside the `app` container; neither needs to be 
 ## Getting started
 
 ```bash
-cp app.env.example app.env
-cp database.env.example database.env
-cp docker/.env.example docker/.env        # optional: host ports, see below
-cd docker && docker compose up
+cp docker/.env.example docker/.env        # optional: host ports, 1Password, personal overrides
+cd docker && ./up.sh
 ```
 
 Then, from `docker/` in a second terminal, install dependencies inside the container:
@@ -84,34 +82,39 @@ throughout:
 | `config/rivet.php` | a `PageDefaults` object: app title, navigation, footer links |
 | `routes/routes.php` | a closure receiving the `Router` |
 
-Environment variables come from Docker's `env_file:` entries (`app.env`, `database.env`) — **nothing in the
-code parses a `.env` file**, so running outside Docker means running with no environment. Both `.env` files
-are gitignored; the `.example` files are the committed templates. Secrets are the exception and never go in
-either file; see below.
+## Environment and secrets
 
-## Secrets
+The application reads its settings from `$_ENV`; **nothing in the code parses a `.env` file**, so running
+outside Docker means running with no environment. The `app` service's `environment:` list in
+`docker/docker-compose.yml` names every setting, each with a local default. Each value comes from the first
+of these that sets it:
 
-Secrets never live in a file. They live in 1Password. The committed `secrets.env` holds only `op://`
-references to them, and `op run` resolves those references when the stack starts:
+1. The app's [1Password Environment](https://developer.1password.com/docs/environments/), when the stack
+   starts through `docker/up.sh`. Shared settings go here as visible variables, and secrets as hidden ones.
+2. `docker/.env`, which is gitignored. It holds personal, non-secret overrides.
+3. The default in `docker-compose.yml`.
+
+**Secrets never live in a file**, so `OIDC_CLIENT_SECRET` and `GROUPER_PASSWORD` come only from the
+1Password Environment. They have no default and must never go in `docker/.env`. Name each variable in the
+Environment exactly as `docker-compose.yml` lists it; compose ignores any name it doesn't list.
 
 ```bash
-cd docker && op run --env-file=../secrets.env -- docker compose up
+cd docker && ./up.sh       # or ./up.sh -d; arguments pass through to `docker compose up`
 ```
 
-`docker-compose.yml` passes `OIDC_CLIENT_SECRET`, `GROUPER_PASSWORD`, `MAIL_PASSWORD` and `LDAP_PASSWORD`
-from that environment into the `app` container, where PHP reads them from `$_ENV` like any other setting.
-It requires the [1Password CLI](https://developer.1password.com/docs/cli/) with desktop-app integration
-turned on.
+`up.sh` runs `op run --environment <id> -- docker compose up`, taking the ID from `OP_ENVIRONMENT_ID` in
+`docker/.env`.
 
-Every reference in `secrets.env` ships commented out, and every uncommented one must resolve or `op run`
-refuses to start. Uncomment a line when you enable the feature that needs it, and point it at your app's
-vault and item. Never put a value there: the file is committed, and `op run` passes a plain value through
-unchanged.
+Setup, once per developer:
 
-Until a feature needs a secret, plain `docker compose up` works. Once you use `op run`, keep using it to
-bring the stack up. A plain `docker compose up` sees blank secrets, treats that as a configuration change,
-and recreates `app` without them. `docker compose exec`, `restart` and `stop` don't recreate the
-container, so they need no `op run`.
+1. Install the [1Password CLI](https://developer.1password.com/docs/cli/) (2.41.0 or later).
+2. Turn on **Integrate with 1Password CLI** in the 1Password app's Developer settings.
+3. Set `OP_ENVIRONMENT_ID` in `docker/.env` to your app's Environment ID.
+
+With no ID set, `up.sh` runs plain `docker compose up`. The defaults apply and the secrets stay blank,
+which is fine until a feature needs one. Once secrets are in use, always start the stack with `up.sh`. A plain
+`docker compose up` sees blank secrets, treats that as a configuration change, and recreates `app` without
+them. `docker compose exec`, `restart` and `stop` don't recreate the container, so they're safe.
 
 ## Authentication
 
@@ -126,9 +129,8 @@ Wired but commented out in `config/app.php`; it needs one of the authentication 
 Grouper settings `config/authorization.php` reads, and the framework's migrations. See
 [AGENTS.md](AGENTS.md#authorization).
 
-`GROUPER_PASSWORD` is a secret: reference it in `secrets.env` (see [Secrets](#secrets)). The other
-`GROUPER_*` settings and `AUTHORIZATION_SYSTEM_ADMIN_GROUP` go in `app.env`, which `app.env.example` does not
-list.
+Its settings (`GROUPER_*` and `AUTHORIZATION_SYSTEM_ADMIN_GROUP`) go in the 1Password Environment; see
+[Environment and secrets](#environment-and-secrets). `GROUPER_PASSWORD` is a secret.
 
 ## Rivet
 
