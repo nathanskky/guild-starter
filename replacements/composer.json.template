@@ -38,12 +38,12 @@
     },
     "autoload": {
         "psr-4": {
-            "App\\": "src"
+            "Guild\\Starter\\": "src"
         }
     },
     "autoload-dev": {
         "psr-4": {
-            "App\\Test\\": "tests"
+            "Guild\\Starter\\Test\\": "tests"
         }
     },
     "scripts": {

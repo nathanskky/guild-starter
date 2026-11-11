@@ -75,8 +75,10 @@ public/index.php  →  bootstrap/app.php  →  config/app.php  →  Application:
 ```
 
 - `public/index.php` requires `bootstrap/app.php` and calls `->run()`.
-- `bootstrap/app.php` requires `vendor/autoload.php`, then sets PHP error display and the default timezone
-  from `$_ENV['DISPLAY_ERRORS_ENABLED']` and `$_ENV['DEFAULT_TIMEZONE']`, then returns `config/app.php`.
+- `bootstrap/app.php` sets PHP error display and the default timezone from `$_ENV['DISPLAY_ERRORS_ENABLED']`
+  and `$_ENV['DEFAULT_TIMEZONE']`, then requires `vendor/autoload.php`, then returns `config/app.php`. The
+  defaults come first so they cover every file autoloading loads (see
+  [Local environment](#local-environment-docker) on vendor deprecations).
 - `config/app.php` builds the application through the framework's fluent builder. As committed:
   `->addRouting()->addIlluminateDatabase()->addAuthentication()->addAuthorization(IdentitySource::Oidc, AppPermission::class)->addTemplateEngine(TemplateEngine::Twig)->addRivet(…)->enableAutoWiring()->create()`.
   The same chain runs in production, locally and in tests; installed extensions (`guild/dev-tools`) are
@@ -87,7 +89,7 @@ public/index.php  →  bootstrap/app.php  →  config/app.php  →  Application:
 
 | Path | Holds |
 |---|---|
-| `bootstrap/app.php` | autoload, PHP error/timezone defaults, then `require config/app.php` |
+| `bootstrap/app.php` | PHP error/timezone defaults, autoload, then `require config/app.php` |
 | `config/` | executable config files (table below) |
 | `routes/routes.php` | routes and route middleware |
 | `src/` | application code, `Guild\Starter\` — `Example/` (the example controller) and `Authorization/AppPermission.php` (the permission catalog) |
@@ -214,10 +216,13 @@ being unreachable answers 503. `framework/AGENTS.md` covers the Gate, policies a
 
 **Turning authorization off**, for an app that doesn't need it: comment out `->addAuthorization(…)` in
 `config/app.php`, delete `config/grouper.php`, and remove `grants:` from `config/personas.php`. The
-framework tables can stay; nothing reads them. Remove `Gate::authorize()` from `ExampleController` too.
+framework tables can stay; nothing reads them. Remove `Gate::authorize()` from `ExampleController` too,
+and the tests in `tests/Feature/ExamplePageTest.php` that expect a 403, a 503 or the System settings menu.
 
-For CAS instead of IU Login, use `IdentitySource::Cas` and drop `->addAuthentication()`. Persona sign-in
-supports IU Login apps only, so a CAS app must not have `PERSONA_SIGN_IN_ENABLED` on.
+For CAS instead of IU Login, use `IdentitySource::Cas`, drop `->addAuthentication()`, and remove
+`RequireSignIn` from `routes/routes.php` (without `addAuthentication()` it fails at dispatch; Apache
+authenticates instead). Persona sign-in supports IU Login apps only, so a CAS app must not have
+`PERSONA_SIGN_IN_ENABLED` on, and the persona feature tests don't apply to it.
 
 ### Personas
 
