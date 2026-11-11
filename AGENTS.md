@@ -29,7 +29,8 @@ root-level tooling or a shared root autoloader.
 | Package | Namespace | Role |
 |---|---|---|
 | `guild/starter` *(this one)* | `Guild\Starter\` | Runnable example app |
-| `guild/framework` | `Guild\Framework\` | Application kernel / DI container. Required as `^1.0.1` (tag constraint) |
+| `guild/framework` | `Guild\Framework\` | Application kernel / DI container. Required as `^2.1` (tag constraint) |
+| `guild/dev-tools` | `Guild\DevTools\` | Persona sign-in and the feature-test kit. In `require-dev` only, so production builds don't contain it (see [Personas](#personas)) |
 | `guild/access` | `Guild\Access\` | IU Login (OIDC) authentication. Reached transitively through the framework; not required directly |
 | `guild/grouper` | `Guild\Grouper\` | IU Grouper group-membership lookup, used by the framework's authorization layer. Reached transitively; not required directly, but its VCS repository is declared here (see Landmines) |
 | `iu/notifications` | `IU\Notifications\` | IU Notifications API client. Fully independent; not used here |
@@ -48,20 +49,18 @@ may carry in-progress work that is not yours. Your obligation is **no new failur
 
 ```bash
 docker compose exec app composer test          # phpunit
+docker compose exec app composer analyse       # PHPStan, level 10 over src/ and tests/
 docker compose exec app composer format:check  # pint, PSR-12 style check (writes nothing)
-docker compose exec app composer check         # test, then style check; stops at the first failure. No PHPStan here yet.
+docker compose exec app composer check         # style, PHPStan, then tests; stops at the first failure
 ```
 
-**`composer test` fails right now, by design.** `tests/` is empty, and `phpunit.xml.dist` sets
-`failOnEmptyTestSuite="true"` so an empty run reports `No tests executed!` and exits non-zero rather than
-falsely exiting 0. **The fix is to write a test, not to remove the flag.** Test classes belong under
-`Guild\Starter\Test\`. For the house test style, read `access/tests/` in the sibling repo.
-
-**There is no PHPStan in this package** — it is not in `require-dev` and there is no `phpstan.neon`. So
-there is no `composer analyse` here, unlike the three libraries.
+Tests live in `tests/`, under `Guild\Starter\Test\`. `tests/Feature/` holds feature tests that sign in as
+personas and visit the app through its real routes, Gate and grants; see [Personas](#personas).
+`phpunit.xml.dist` sets `failOnEmptyTestSuite="true"`, so a run that finds no tests fails rather than
+falsely passing.
 
 Static analysis levels across the workspace, for reference: `access` `max`, `framework` `10`,
-`notification` `5`, `starter` none. Do not assume one bar.
+`notification` `5`, `starter` `10`. Do not assume one bar.
 
 ## Architecture
 
@@ -75,8 +74,9 @@ public/index.php  →  bootstrap/app.php  →  config/app.php  →  Application:
 - `bootstrap/app.php` requires `vendor/autoload.php`, then sets PHP error display and the default timezone
   from `$_ENV['DISPLAY_ERRORS_ENABLED']` and `$_ENV['DEFAULT_TIMEZONE']`, then returns `config/app.php`.
 - `config/app.php` builds the application through the framework's fluent builder. As committed:
-  `->addRouting()->addIlluminateDatabase()->addTemplateEngine(TemplateEngine::Twig)->addRivet(…)->enableAutoWiring()->create()`,
-  with `->addAuthorization(…)` present but commented out (see [Authorization](#authorization)).
+  `->addRouting()->addIlluminateDatabase()->addAuthentication()->addAuthorization(IdentitySource::Oidc, AppPermission::class)->addTemplateEngine(TemplateEngine::Twig)->addRivet(…)->enableAutoWiring()->create()`.
+  The same chain runs in production, locally and in tests; installed extensions (`guild/dev-tools`) are
+  discovered by the framework, not named here.
 - `public/.htaccess` rewrites all requests to `index.php` (front-controller pattern).
 
 ### Directory layout
@@ -87,6 +87,7 @@ public/index.php  →  bootstrap/app.php  →  config/app.php  →  Application:
 | `config/` | executable config files (table below) |
 | `routes/routes.php` | routes and route middleware |
 | `src/` | application code, `Guild\Starter\` — `Example/` (the example controller) and `Authorization/AppPermission.php` (the permission catalog) |
+| `tests/` | PHPUnit tests, `Guild\Starter\Test\`; `Feature/ExamplePageTest.php` visits the example page as each persona |
 | `templates/` | Twig templates; `example/index.html.twig` is the example page |
 | `public/` | docroot: `index.php` and `.htaccess` |
 | `docker/` | compose file (which lists every app setting), Dockerfile, entrypoint, Apache config templates, `.env.example` for host ports, the 1Password Environment ID and personal overrides |
@@ -99,8 +100,10 @@ This is the single most important convention to internalize here:
 | File | Must return |
 |---|---|
 | `config/app.php` | the built `Application` |
-| `config/authentication.php` | an `OidcConfiguration` **object** (checked with `instanceof`) |
-| `config/authorization.php` | an `AuthorizationConfiguration` **object**, read only when `addAuthorization()` is called |
+| `config/authentication.php` | an `OidcConfiguration` **object** (checked with `instanceof`), read by `addAuthentication()` unless persona sign-in is on |
+| `config/authorization.php` | an `AuthorizationConfiguration` **object**, read by `addAuthorization()` |
+| `config/grouper.php` | a `GrouperDirectoryConfiguration` **object**, read by `addAuthorization()` unless persona sign-in is on |
+| `config/personas.php` | a `Guild\DevTools\Persona\PersonaRoster` **object**, read only while persona sign-in is on |
 | `config/database.php` | a plain Eloquent connection **array** |
 | `config/rivet.php` | a `Guild\Rivet\Page\PageDefaults` **object**, passed to `addRivet()` |
 | `routes/routes.php` | a **closure**: `return static function (Router $router) { … };` |
@@ -140,18 +143,23 @@ line must use a blank default: `- NAME=${NAME:-}`.
 
 Both are legitimate. Which one fits depends on how the app is built and where it is deployed.
 
-**1. OIDC via the front controller** — `guild/access` + `OidcAuthenticationMiddleware`. The default for apps
-that route everything through `public/index.php`. To enable it you need all three of:
+**1. IU Login (OIDC) via the front controller** — `guild/access` through the framework's
+`addAuthentication()`. The committed default, for apps that route everything through `public/index.php`.
+It needs:
 
-- `->addAuthentication()` in the builder chain in `config/app.php`
-- `config/authentication.php` returning a valid `OidcConfiguration`
-- real values for the `OIDC_*` env vars it reads, in the 1Password Environment: `OIDC_CLIENT_ID` and
-  `OIDC_REDIRECT_URI` (their defaults are blank and a placeholder), and the secret `OIDC_CLIENT_SECRET`
-  (see [Environment and secrets](#environment-and-secrets))
+- `->addAuthentication()` in the builder chain in `config/app.php` (committed)
+- `config/authentication.php` returning a valid `OidcConfiguration` (committed)
+- real values for the `OIDC_*` env vars it reads, in the 1Password Environment: `OIDC_CLIENT_ID`, the
+  secret `OIDC_CLIENT_SECRET`, and `OIDC_REDIRECT_URI` where it differs from the local default (see
+  [Environment and secrets](#environment-and-secrets))
 
-Middleware is attached in routing code, not in config. `routes/routes.php` carries a commented example:
-`// $router->lazyMiddleware(OidcAuthenticationMiddleware::class);` applies it to every route; it can also be
-attached per-route or per-group.
+Locally and in tests, persona sign-in stands in for IU Login and none of these values is read; see
+[Personas](#personas).
+
+Routes that need a signed-in user take `Guild\Framework\Middleware\RequireSignIn`, attached in
+`routes/routes.php` per route or per route group. It asks the sign-in method in use: IU Login redirects to
+IU Login, persona sign-in to the persona picker. Templates get `sign_out_form()`, a CSRF-protected
+**Sign out** button posting to `/framework/sign-out`; the example page shows it.
 
 **2. Apache `mod_auth_cas` + `.htaccess`** — authentication handled at the web-server layer, before PHP
 runs. Appropriate for apps simple enough to skip a front controller, or otherwise architected so that
@@ -171,27 +179,111 @@ Require valid-user
 ### Authorization
 
 Resolves the signed-in user's IU Grouper groups to locally managed roles and permissions, and serves the
-framework's administration pages at `/framework/authorization`. **Off by default.** The pieces are all
-committed; turning it on is:
+framework's administration pages at `/framework/authorization`. **On by default**, as
+`->addAuthorization(IdentitySource::Oidc, AppPermission::class)` in `config/app.php`. With IU Login it
+needs:
 
-1. **An identity source.** CAS (the `.htaccess` lines above) with `IdentitySource::Cas`, or OIDC
-   (`->addAuthentication()`, earlier in the chain) with `IdentitySource::Oidc`. Authorization never
-   authenticates anyone itself.
-2. **Uncomment `->addAuthorization(IdentitySource::Cas, AppPermission::class)`** in `config/app.php`, changing
-   the identity source to match step 1.
-3. **The environment `config/authorization.php` reads:** `GROUPER_SERVICE_URL`, `GROUPER_USERNAME`,
-   `GROUPER_STEM` (blank means the ACM default, `iu:roles:sys:acm`) and `AUTHORIZATION_SYSTEM_ADMIN_GROUP`
-   (the **ACM label** of the group whose members administer the app), plus the secret `GROUPER_PASSWORD`,
-   all in the 1Password Environment (see [Environment and secrets](#environment-and-secrets)). With any of
-   these blank except `GROUPER_STEM`, the application fails at startup, naming the problem.
-4. **The framework's migrations**, run from this repo:
-   `docker compose exec app vendor/bin/phinx -c vendor/guild/framework/phinx.php migrate -e framework`.
+- **Grouper settings, read by `config/grouper.php`:** `GROUPER_SERVICE_URL`, `GROUPER_USERNAME`,
+  `GROUPER_STEM` (blank means the ACM default, `iu:roles:sys:acm`) and the secret `GROUPER_PASSWORD`.
+- **`AUTHORIZATION_SYSTEM_ADMIN_GROUP`**, read by `config/authorization.php`: the **ACM label** of the group
+  whose members administer the app.
+- **The framework's migrations**, which `composer migrate` runs.
 
-Then a member of the System Admin group reaches the administration pages through the **System settings**
-menu in the header (`rvt_page` adds it), registers groups by their ACM label, and grants roles the cases of
+All of these settings go in the 1Password Environment (see [Environment and secrets](#environment-and-secrets)).
+With any of them blank except `GROUPER_STEM`, the application fails at startup, naming the problem.
+Persona sign-in reads none of them: groups and the System Admin label come from `config/personas.php`.
+
+A member of the System Admin group reaches the administration pages through the **System settings** menu in
+the header (`rvt_page` adds it), registers groups by their ACM label, and grants roles the cases of
 `src/Authorization/AppPermission.php` — the application's permission catalog. Checks read
-`Gate::allows(AppPermission::ExampleView)` in PHP and `can('example.view')` in templates.
-`framework/AGENTS.md` covers the Gate, policies and the full `addAuthorization()` signature.
+`Gate::authorize(AppPermission::ExampleView)` in PHP (as `ExampleController` does) and
+`can('example.view')` in templates. A denied check answers 403, a guest is asked to sign in, and Grouper
+being unreachable answers 503. `framework/AGENTS.md` covers the Gate, policies and the full
+`addAuthorization()` signature.
+
+**Turning authorization off**, for an app that doesn't need it: comment out `->addAuthorization(…)` in
+`config/app.php`, delete `config/grouper.php`, and remove `grants:` from `config/personas.php`. The
+framework tables can stay; nothing reads them. Remove `Gate::authorize()` from `ExampleController` too.
+
+For CAS instead of IU Login, use `IdentitySource::Cas` and drop `->addAuthentication()`. Persona sign-in
+supports IU Login apps only, so a CAS app must not have `PERSONA_SIGN_IN_ENABLED` on.
+
+### Personas
+
+Locally and in tests, nobody signs in through IU Login and nothing calls Grouper. `guild/dev-tools`
+(`require-dev`) replaces both with **personas**: made-up users, each with a username, a name and Grouper
+groups, declared in `config/personas.php`. Everything after sign-in is the app's real code: the membership
+cache, the grant tables, the Gate. The `guild/dev-tools` README is the full reference.
+
+It is on when `PERSONA_SIGN_IN_ENABLED` is `true`. The framework discovers the installed package, so
+`config/app.php` doesn't name it.
+
+**The roster**, `config/personas.php`:
+
+| Key | Name | Groups | Can |
+|---|---|---|---|
+| `editor` | Erin Editor | Starter Editors | `example.view`, through the `Editor` role |
+| `newcomer` | Nico Newcomer | none | nothing; the example page is 403 |
+| `admin` | Ada Admin | Starter Admins, the roster's System Admin group | everything, and the administration pages |
+| `outage` | Grouper Down | Grouper is unreachable for this persona | nothing; pages that need groups are 503 |
+
+The roster's `grants:` are written into the framework's grant tables when the picker opens and before
+each test; grants added through `/framework/authorization` survive. Usernames start with `persona-`, so
+none is a real IU username. Groups name real Grouper groups, so the same grants work in production.
+
+**The picker**, `/_dev/personas`, lists each persona with what it can do, and signs you in as one. A guest
+on a page with `RequireSignIn` is sent there and returned afterwards. **The banner** at the top of every
+HTML page says who you are signed in as, with **Switch persona**, **Sign out** and **Simulate a Grouper
+outage**.
+
+**Feature tests** sign in as a persona in one call, and run in one process against in-memory SQLite:
+
+```php
+use Guild\DevTools\Testing\VisitsApplication;
+
+final class ExamplePageTest extends TestCase
+{
+    use VisitsApplication;
+
+    public function testEditorsSeeTheExample(): void
+    {
+        $this->signedInAs('editor')->get('/')->assertOk()->assertSee('Example Page');
+    }
+}
+```
+
+`asGuest()`, `duringDirectoryOutage()`, `post()` (CSRF token filled in) and the assertions are in the
+dev-tools README. Feature tests see the banner too, and its name is in a `<strong>` tag:
+`assertSee('signed in as <strong>Erin Editor</strong>')`. `phpunit.xml.dist` turns persona sign-in on and
+blanks both secrets with `force="true"`, so tests run the same in any container.
+
+**Browser tests** (Playwright) sign in through the picker, as a person would:
+
+```ts
+export async function signInAs(page: Page, key: string): Promise<void> {
+  await page.goto('/_dev/personas');
+  await page.locator('form').filter({ has: page.locator(`input[name="persona"][value="${key}"]`) })
+    .getByRole('button').click();
+}
+```
+
+**Safety.** Persona sign-in lets anyone become anyone, so several layers keep it out of production:
+
+- `guild/dev-tools` is `require-dev`; AppKube builds with `composer install --no-dev`
+- it is off unless `PERSONA_SIGN_IN_ENABLED` is `true`, which production never sets
+- it refuses to start if `OIDC_CLIENT_SECRET` or `GROUPER_PASSWORD` is set
+- the picker and sign-in answer 404 unless the host is `localhost`, `127.0.0.1` or `::1`
+- every switch and sign-out replaces the session ID and is logged
+
+Never move `guild/dev-tools` into `require`, and never set `PERSONA_SIGN_IN_ENABLED` in a deployed
+environment.
+
+**What production needs**, which persona sign-in hides locally:
+
+- `OIDC_*` settings and the `OIDC_CLIENT_SECRET` secret
+- `GROUPER_*` settings and the `GROUPER_PASSWORD` secret
+- `AUTHORIZATION_SYSTEM_ADMIN_GROUP`
+- the framework's migrations, run against the production database
 
 ### Rivet
 
@@ -280,15 +372,14 @@ patterns below are *observed*, not a style guide, and cover only what Pint doesn
   publish.** Their `vendor/guild/*` copies are real directories holding downloaded zipballs, not symlinks —
   typically several commits behind those repos' HEADs. See
   [Getting a change to consumers](#getting-a-change-to-consumers).
-- **Authentication is not wired up as committed.** `config/app.php` does not call `addAuthentication()`, so
-  `config/authentication.php` is inert. Uncommenting the middleware line in `routes/routes.php`
-  without also adding `addAuthentication()` fails at dispatch: autowiring reaches
-  `OidcAuthenticationMiddleware::__construct(OidcConfiguration, ?LoggerInterface)` and cannot construct
-  `OidcConfiguration`, whose constructor requires three strings.
-- **`OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` are blank until the 1Password Environment defines them.** A
-  blank value reads as `""`, which trips `OidcConfiguration`'s validation and throws
-  `OidcConfigurationException`. Enabling OIDC means the `->addAuthentication()` builder call and both
-  values in the Environment.
+- **`RequireSignIn` on the whole router breaks persona sign-in.** `$router->lazyMiddleware(RequireSignIn::class)`
+  also guards `/_dev/personas`, so a guest is sent from the picker to the picker. Attach it to routes or
+  route groups.
+- **Removing `->addAuthentication()` while routes use `RequireSignIn` fails at dispatch** with a
+  `TypeError`: nothing provides the sign-in method it needs.
+- **`OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` are blank until the 1Password Environment defines them.** With
+  IU Login, a blank value trips `OidcConfiguration`'s validation and the app fails at startup. Persona
+  sign-in doesn't read them.
 - **A plain `docker compose up` after a `./up.sh` one recreates `app` without the Environment's values.**
   Compose sees the defaults as a configuration change and rebuilds the container, so auth or Grouper then
   fails at startup. Bring the stack up through `./up.sh` every time; `exec`, `restart` and `stop` are safe.
@@ -297,9 +388,9 @@ patterns below are *observed*, not a style guide, and cover only what Pint doesn
 - **The framework binds a default `LoggerInterface`** — Monolog on the `framework` channel, writing through
   `error_log()`, which in this image reaches Apache's `ErrorLog` and so `docker compose logs app`. Replace it
   with `->withLogger()` on the builder. See `framework/AGENTS.md` for the AppKube caveat.
-- **`bin/`, `lib/`, `html/`, `tests/`, `public/css/`, and `public/js/` are empty.** Git tracks none of them,
-  so a fresh clone has none of them either; create `tests/` with the first test. `html/` is gitignored and
-  unused — Docker mounts `public/` to the container's docroot instead.
+- **`bin/`, `lib/`, `html/`, `public/css/`, and `public/js/` are empty.** Git tracks none of them, so a
+  fresh clone has none of them either. `html/` is gitignored and unused — Docker mounts `public/` to the
+  container's docroot instead.
 - **Composer repositories are not transitive.** A sibling package declaring a VCS repository for one of
   *its* dependencies does not make that dependency resolvable here — this package's own `composer.json`
   needs the same VCS entry. Every package reached through `guild/framework` (`guild/access`,

@@ -11,6 +11,15 @@
         </testsuite>
     </testsuites>
 
+    <php>
+        <!-- Tests sign in as personas, which refuse to run beside real IU Login or Grouper secrets.
+             force="true" wins over values already in the environment, such as a container
+             started with docker/up-iu-services.sh. -->
+        <env name="PERSONA_SIGN_IN_ENABLED" value="true" force="true"/>
+        <env name="OIDC_CLIENT_SECRET" value="" force="true"/>
+        <env name="GROUPER_PASSWORD" value="" force="true"/>
+    </php>
+
     <source>
         <include>
             <directory>src</directory>

@@ -4,27 +4,18 @@ declare(strict_types=1);
 
 /**
  * Configuration for addAuthorization(): everything that varies by deployment.
- * Read only when addAuthorization() is called in config/app.php.
+ * How to reach Grouper is in config/grouper.php.
  *
- * GROUPER_PASSWORD comes from a 1Password Environment (see docker/up.sh), never
- * from a file. A blank GROUPER_STEM falls back to the ACM default rather than
- * meaning "unscoped", which would be an institution-wide lookup of several
- * seconds per user.
+ * A blank System Admin label fails at startup, unless persona sign-in supplies
+ * it from the roster's systemAdminGroup in config/personas.php.
  *
- * Membership TTL, stale cap and Grouper timeouts keep their defaults here; see
+ * Membership TTL and stale cap keep their defaults here; see
  * AuthorizationConfiguration to change them.
  */
 
 use Guild\Framework\Authorization\AuthorizationConfiguration;
-use Guild\Grouper\GrouperConfiguration;
 
 return new AuthorizationConfiguration(
-    grouper: new GrouperConfiguration(
-        serviceUrl: $_ENV['GROUPER_SERVICE_URL'] ?? '',
-        username:   $_ENV['GROUPER_USERNAME'] ?? '',
-        password:   $_ENV['GROUPER_PASSWORD'] ?? '',
-        stem:       trim($_ENV['GROUPER_STEM'] ?? '') ?: GrouperConfiguration::ACM_STEM,
-    ),
     // The ACM label of the group whose members administer this application.
     systemAdminGroup: $_ENV['AUTHORIZATION_SYSTEM_ADMIN_GROUP'] ?? '',
 );

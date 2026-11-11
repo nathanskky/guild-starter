@@ -19,17 +19,22 @@
         {
             "type": "vcs",
             "url": "https://github.com/nathanskky/guild-grouper.git"
+        },
+        {
+            "type": "vcs",
+            "url": "https://github.com/nathanskky/guild-dev-tools.git"
         }
     ],
     "require": {
         "php": "~8.5.0",
-        "guild/framework": "^1.0.1",
+        "guild/framework": "^2.1",
         "guild/rivet": "^1.0"
     },
     "require-dev": {
         "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^13.0",
-        "laravel/pint": "^1.32"
+        "laravel/pint": "^1.32",
+        "guild/dev-tools": "^1.0"
     },
     "autoload": {
         "psr-4": {
@@ -50,13 +55,15 @@
             "@format:check",
             "@analyse",
             "@test"
-        ]
+        ],
+        "migrate": "phinx -c vendor/guild/framework/phinx.php migrate -e framework"
     },
     "scripts-descriptions": {
-        "test": "Run the test suite (fails if no tests run, which is the case until the first test is written).",
+        "test": "Run the PHPUnit suite.",
         "analyse": "Run PHPStan static analysis. See phpstan.neon file for config.",
         "format": "Auto-fix code style with Pint (PSR-12).",
         "format:check": "Check code style with Pint (PSR-12) without modifying files.",
-        "check": "Run tests then style check. There is no PHPStan configuration here; see AGENTS.md."
+        "check": "Check style, run PHPStan, then the tests; stops at the first failure.",
+        "migrate": "Run the framework's database migrations (and, later, the app's own). Needs the database, so run it in the container."
     }
 }

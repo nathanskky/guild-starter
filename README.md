@@ -66,6 +66,8 @@ throughout:
 | `config/app.php` | the built `Application` (the builder chain lives here) |
 | `config/authentication.php` | an `OidcConfiguration` object |
 | `config/authorization.php` | an `AuthorizationConfiguration` object |
+| `config/grouper.php` | a `GrouperDirectoryConfiguration` object: how to reach Grouper |
+| `config/personas.php` | a `PersonaRoster` object: the personas for local sign-in and tests |
 | `config/database.php` | an Eloquent connection array |
 | `config/rivet.php` | a `PageDefaults` object: app title, navigation, footer links |
 | `routes/routes.php` | a closure receiving the `Router` |
@@ -106,19 +108,26 @@ them. `docker compose exec`, `restart` and `stop` don't recreate the container, 
 
 ## Authentication
 
-Two approaches are supported — OIDC through the front controller, or Apache `mod_auth_cas` with
-`.htaccess`. Neither is enabled out of the box. See
+People sign in through IU Login (OIDC), and pages that need a signed-in user carry `RequireSignIn` in
+`routes/routes.php`. Apache `mod_auth_cas` with `.htaccess` is also supported. See
 [AGENTS.md](AGENTS.md#authentication-two-supported-approaches) for which to choose and what each requires.
 
 ## Authorization
 
 Grouper groups mapped to roles and permissions, with administration pages at `/framework/authorization`.
-Wired but commented out in `config/app.php`; it needs one of the authentication approaches above, the
-Grouper settings `config/authorization.php` reads, and the framework's migrations. See
-[AGENTS.md](AGENTS.md#authorization).
+On by default. With IU Login it needs the Grouper settings `config/grouper.php` reads, the System Admin
+group label, and the framework's migrations. See [AGENTS.md](AGENTS.md#authorization).
 
 Its settings (`GROUPER_*` and `AUTHORIZATION_SYSTEM_ADMIN_GROUP`) go in the 1Password Environment; see
 [Environment and secrets](#environment-and-secrets). `GROUPER_PASSWORD` is a secret.
+
+## Personas
+
+Locally and in tests, you sign in as a **persona** instead of through IU Login: a made-up user whose
+Grouper groups come from `config/personas.php`, so no credentials are needed. Pick one at
+`/_dev/personas`; a banner on every page shows who you are. Persona sign-in comes from `guild/dev-tools`,
+installed with `require-dev` only, so production builds don't contain it. See
+[AGENTS.md](AGENTS.md#personas).
 
 ## Rivet
 
@@ -132,8 +141,8 @@ From `docker/`:
 
 ```bash
 docker compose exec app composer test    # phpunit
-docker compose exec app composer check   # phpunit, then the Pint (PSR-12) style check
+docker compose exec app composer check   # Pint style check, PHPStan, then phpunit
 ```
 
-There are no tests, so `composer test` fails with `No tests executed!` on purpose rather than reporting
-a false pass. Writing the first test, under `tests/`, is the fix.
+`composer check` runs the Pint style check, PHPStan (level 10), then PHPUnit. Feature tests in
+`tests/Feature/` sign in as personas; see [AGENTS.md](AGENTS.md#personas).

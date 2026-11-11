@@ -9,21 +9,19 @@ declare(strict_types=1);
  * @todo link to example doc(s)
  */
 
-use Guild\Starter\Example\ExampleController;
-use Guild\Access\Authentication\OIDC\OidcAuthenticationMiddleware;
+use Guild\Framework\Middleware\RequireSignIn;
 use Guild\Framework\Router;
+use Guild\Starter\Example\ExampleController;
 
 return static function (Router $router) {
     /**
-     * To require authentication for every route, uncomment this line.
+     * Routes that need a signed-in user take RequireSignIn: IU Login in production,
+     * the persona picker locally. A route group can carry it for many routes.
      *
-     * You can also add authentication -- or any other middleware -- to
-     * individual routes and route groups.
+     * Don't add it to the whole router: that also guards the persona picker at
+     * /_dev/personas, which would send a guest back to itself.
      *
      * @see https://route.thephpleague.com/6.x/middleware/#defining-middleware
      */
-    // $router->lazyMiddleware(OidcAuthenticationMiddleware::class);
-
-    // An example route.
-    $router->map('GET', '/', [ExampleController::class, 'index']);
+    $router->map('GET', '/', [ExampleController::class, 'index'])->lazyMiddleware(RequireSignIn::class);
 };

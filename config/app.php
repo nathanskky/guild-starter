@@ -18,12 +18,14 @@ $basePath = dirname(__FILE__, 2);
 return Application::configure($basePath)
     ->addRouting()
     ->addIlluminateDatabase()
-    // Authorization: resolves each user's Grouper groups to roles and permissions, and serves the
-    // administration pages at /framework/authorization. Off by default, because it needs an identity
-    // source (CAS in public/.htaccess, or ->addAuthentication() with IdentitySource::Oidc), the
-    // Grouper settings config/authorization.php reads, and the framework's migrations.
-    // See AGENTS.md, "Authorization".
-    // ->addAuthorization(IdentitySource::Cas, AppPermission::class)
+    // Who is signed in, and which Grouper groups they are in. In production: IU Login
+    // (config/authentication.php) and Grouper (config/grouper.php). Locally and in tests,
+    // guild/dev-tools replaces both with the personas in config/personas.php when
+    // PERSONA_SIGN_IN_ENABLED is on. See AGENTS.md, "Personas".
+    ->addAuthentication()
+    // Maps groups to roles and permissions, and serves the administration pages at
+    // /framework/authorization. See AGENTS.md, "Authorization".
+    ->addAuthorization(IdentitySource::Oidc, AppPermission::class)
     ->addTemplateEngine(TemplateEngine::Twig)
     ->addRivet(require __DIR__ . '/rivet.php')
     ->enableAutoWiring()
