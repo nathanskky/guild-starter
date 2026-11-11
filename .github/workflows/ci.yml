@@ -10,7 +10,7 @@ jobs:
     name: Style, PHPStan and tests
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
@@ -22,7 +22,7 @@ jobs:
     name: Production build has no persona sign-in
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: shivammathur/setup-php@v2
         with:
           php-version: '8.5'
