@@ -9,4 +9,9 @@ envsubst '$APP_HTTPS_PORT' < /etc/apache2/mods-available/auth_cas.conf.template 
 composer install --working-dir=/var/www --no-interaction --no-progress \
     || echo "docker-entrypoint.sh: composer install failed; see the output above" >&2
 
+# Create or update the database tables. Like the install, a failure is reported but does not stop
+# the container; rerun it with `docker compose exec app composer migrate`.
+composer migrate --working-dir=/var/www --no-interaction \
+    || echo "docker-entrypoint.sh: composer migrate failed; see the output above" >&2
+
 exec docker-php-entrypoint "$@"

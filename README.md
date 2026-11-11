@@ -18,10 +18,11 @@ composer create-project --no-install \
   --repository='{"type":"vcs","url":"https://github.com/nathanskky/guild-starter.git"}' \
   --remove-vcs \
   guild/starter my-project
-cd my-project/docker && docker compose up
+cd my-project/docker && ./up-personas.sh
 ```
 
-The `app` container runs `composer install` each time it starts. App: `https://localhost:8443`.
+The `app` container runs `composer install` and the database migrations each time it starts. Open
+`https://localhost:8443` and pick a persona; no credentials are needed.
 
 ## Requirements (developing the starter itself)
 
@@ -33,11 +34,21 @@ PHP (`~8.5.0`) and Composer run inside the `app` container; neither needs to be 
 
 ```bash
 cp docker/.env.example docker/.env        # optional: host ports, 1Password, personal overrides
-cd docker && ./up.sh
+cd docker && ./up-personas.sh            # sign in as personas; or ./up-iu-services.sh, see below
 ```
 
-The `app` container runs `composer install` each time it starts, before Apache. `composer.lock` is
-gitignored, so the first install resolves current versions of every dependency. The example page is at `https://localhost:8443` (or your `APP_HTTPS_PORT`).
+The `app` container runs `composer install` and then `composer migrate` each time it starts, before
+Apache. `composer.lock` is gitignored, so the first install resolves current versions of every dependency.
+The example page is at `https://localhost:8443` (or your `APP_HTTPS_PORT`); it sends you to the persona
+picker first.
+
+There are two start scripts, one per sign-in mode. Both pass their arguments to `docker compose up`
+(`./up-personas.sh -d`, say):
+
+| Script | Signs in through | Needs |
+|---|---|---|
+| `docker/up-personas.sh` | Personas from `config/personas.php` | Nothing |
+| `docker/up-iu-services.sh` | Real IU Login, with groups from Grouper | The app's 1Password Environment (below) |
 
 The stack is three services:
 
@@ -80,7 +91,7 @@ outside Docker means running with no environment. The `app` service's `environme
 of these that sets it:
 
 1. The app's [1Password Environment](https://developer.1password.com/docs/environments/), when the stack
-   starts through `docker/up.sh`. Shared settings go here as visible variables, and secrets as hidden ones.
+   starts through `docker/up-iu-services.sh`. Shared settings go here as visible variables, and secrets as hidden ones.
 2. `docker/.env`, which is gitignored. It holds personal, non-secret overrides.
 3. The default in `docker-compose.yml`.
 
@@ -89,11 +100,14 @@ of these that sets it:
 Environment exactly as `docker-compose.yml` lists it; compose ignores any name it doesn't list.
 
 ```bash
-cd docker && ./up.sh       # or ./up.sh -d; arguments pass through to `docker compose up`
+cd docker && ./up-iu-services.sh       # or ./up-iu-services.sh -d
 ```
 
-`up.sh` runs `op run --environment <id> -- docker compose up`, taking the ID from `OP_ENVIRONMENT_ID` in
-`docker/.env`.
+`up-iu-services.sh` runs `op run --environment <id> -- docker compose up`, taking the ID from
+`OP_ENVIRONMENT_ID` in `docker/.env`. It stops with a message when the ID is unset or the `op` CLI is
+missing. `up-personas.sh` loads no 1Password Environment, so a setting that lives only there doesn't apply
+in persona mode; give it a compose default or put it in `docker/.env`. Persona mode refuses to start if
+either secret is set.
 
 Setup, once per developer:
 
@@ -101,10 +115,10 @@ Setup, once per developer:
 2. Turn on **Integrate with 1Password CLI** in the 1Password app's Developer settings.
 3. Set `OP_ENVIRONMENT_ID` in `docker/.env` to your app's Environment ID.
 
-With no ID set, `up.sh` runs plain `docker compose up`. The defaults apply and the secrets stay blank,
-which is fine until a feature needs one. Once secrets are in use, always start the stack with `up.sh`. A plain
-`docker compose up` sees blank secrets, treats that as a configuration change, and recreates `app` without
-them. `docker compose exec`, `restart` and `stop` don't recreate the container, so they're safe.
+Start the stack through a script every time. A plain `docker compose up` starts in persona mode, so after
+`up-iu-services.sh` it recreates `app` without the Environment's values and switches to personas; the
+banner at the top of each page shows it. `docker compose exec`, `restart` and `stop` don't recreate the
+container, so they're safe.
 
 ## Authentication
 

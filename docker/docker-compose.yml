@@ -13,10 +13,16 @@ services:
       - "${APP_HTTP_PORT:-8080}:80"
       - "${APP_HTTPS_PORT:-8443}:443"
     # Every setting the application reads from $_ENV, and nothing else. Each
-    # ${NAME:-default} takes the first value set from: the 1Password Environment
-    # (when started with ./up.sh), then docker/.env, then the default here.
-    # To add a setting, add a line here and its $_ENV read in config/.
+    # ${NAME:-default} takes the first value set from: the start script, then the
+    # 1Password Environment (when started with ./up-iu-services.sh), then
+    # docker/.env, then the default here. Each start script sets the sign-in mode:
+    # ./up-personas.sh for persona sign-in, ./up-iu-services.sh for real IU Login
+    # and Grouper. To add a setting, add a line here and its $_ENV read in config/.
     environment:
+      # Persona sign-in (guild/dev-tools): set by the start scripts, so a plain
+      # `docker compose up` also starts in persona mode. Never put it in the
+      # 1Password Environment or docker/.env, so the scripts stay in charge.
+      - PERSONA_SIGN_IN_ENABLED=${PERSONA_SIGN_IN_ENABLED:-true}
       - APP_HTTPS_PORT=${APP_HTTPS_PORT:-8443}
       - DEFAULT_TIMEZONE=${DEFAULT_TIMEZONE:-UTC}
       - DISPLAY_ERRORS_ENABLED=${DISPLAY_ERRORS_ENABLED:-true}
@@ -26,20 +32,25 @@ services:
       - MYSQL_DATABASE=${MYSQL_DATABASE:-app_database}
       - MYSQL_USERNAME=${MYSQL_USERNAME:-app_user}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD:-app_password}
-      # OIDC, used with ->addAuthentication().
+      # IU Login (OIDC), read by config/authentication.php in IU services mode
+      # only; persona mode ignores them. The redirect URI default assumes the
+      # app's IU Login client registers it.
       - OIDC_ISSUER=${OIDC_ISSUER:-https://idp.login.iu.edu}
       - OIDC_CLIENT_ID=${OIDC_CLIENT_ID:-}
-      - OIDC_REDIRECT_URI=${OIDC_REDIRECT_URI:-https://your-app.webapps.iu.edu/signin-oidc}
-      # Grouper, used with ->addAuthorization(). A blank GROUPER_STEM means the
-      # ACM default; AUTHORIZATION_SYSTEM_ADMIN_GROUP is an ACM label.
+      - OIDC_REDIRECT_URI=${OIDC_REDIRECT_URI:-https://localhost:8443/signin-oidc}
+      # Grouper, read by config/grouper.php in IU services mode only; persona
+      # mode ignores them. A blank GROUPER_STEM means the ACM default.
+      # AUTHORIZATION_SYSTEM_ADMIN_GROUP is an ACM label: persona mode takes it
+      # from config/personas.php, IU services mode fails loudly when it is blank.
       - GROUPER_SERVICE_URL=${GROUPER_SERVICE_URL:-}
       - GROUPER_USERNAME=${GROUPER_USERNAME:-}
       - GROUPER_STEM=${GROUPER_STEM:-}
       - AUTHORIZATION_SYSTEM_ADMIN_GROUP=${AUTHORIZATION_SYSTEM_ADMIN_GROUP:-}
-      # Secrets. They come only from the 1Password Environment via ./up.sh:
-      # never give them a default here or a value in docker/.env, both of which
-      # put a credential in a file. Blank, the stack still starts; the
-      # application fails loudly when a feature that needs one is enabled.
+      # Secrets. They come only from the 1Password Environment via
+      # ./up-iu-services.sh: never give them a default here or a value in
+      # docker/.env, both of which put a credential in a file. Persona mode
+      # refuses to start if either is set; IU services mode fails loudly if
+      # either is blank.
       - OIDC_CLIENT_SECRET=${OIDC_CLIENT_SECRET:-}
       - GROUPER_PASSWORD=${GROUPER_PASSWORD:-}
     depends_on:

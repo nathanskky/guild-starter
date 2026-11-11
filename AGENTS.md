@@ -91,7 +91,8 @@ public/index.php  →  bootstrap/app.php  →  config/app.php  →  Application:
 | `templates/` | Twig templates; `example/index.html.twig` is the example page |
 | `public/` | docroot: `index.php` and `.htaccess` |
 | `docker/` | compose file (which lists every app setting), Dockerfile, entrypoint, Apache config templates, `.env.example` for host ports, the 1Password Environment ID and personal overrides |
-| `docker/up.sh` | starts the stack under `op run`, loading settings and secrets from a 1Password Environment (see [Environment and secrets](#environment-and-secrets)) |
+| `docker/up-personas.sh` | starts the stack with persona sign-in: no IU Login, no Grouper, no secrets |
+| `docker/up-iu-services.sh` | starts the stack with real IU Login and Grouper under `op run`, loading a 1Password Environment (see [Environment and secrets](#environment-and-secrets)) |
 | `tmp/` | gitignored runtime data: MySQL data (`tmp/mysql`) and Xdebug output (`tmp/xdebug`) |
 
 **Config is executable PHP that returns objects, arrays, or closures** — not config arrays across the board.
@@ -118,15 +119,21 @@ Docker means no environment at all. **The `app` service's `environment:` list in
 `docker/docker-compose.yml` is the complete list of settings the application reads**, each written as
 `- NAME=${NAME:-default}`. Compose fills each one from the first source that sets it:
 
-1. The app's 1Password Environment, which `docker/up.sh` loads with
+1. The start script, which sets `PERSONA_SIGN_IN_ENABLED` (and, for personas, blanks both secrets).
+2. The app's 1Password Environment, which `docker/up-iu-services.sh` loads with
    `op run --environment "$OP_ENVIRONMENT_ID" -- docker compose up`. It holds shared settings as visible
    variables and secrets as hidden ones.
-2. `docker/.env`, which is gitignored and holds personal, non-secret overrides and the Environment ID.
-3. The committed default.
+3. `docker/.env`, which is gitignored and holds personal, non-secret overrides and the Environment ID.
+4. The committed default.
 
 The `database` service takes its credentials from the same `MYSQL_*` names, so the two always agree.
-With no `OP_ENVIRONMENT_ID`, `up.sh` runs plain `docker compose up` and the defaults apply. The
+`up-iu-services.sh` stops with a message when `OP_ENVIRONMENT_ID` is unset or `op` is missing; it never
+falls back to plain compose, which would start IU Login with no secrets. `up-personas.sh` loads no
+Environment, so a setting persona mode needs must have a compose default or live in `docker/.env`. The
 Environment ID is not a secret; it grants nothing without access to the Environment.
+
+`PERSONA_SIGN_IN_ENABLED` belongs to the start scripts: never put it in the 1Password Environment or
+`docker/.env`. Its compose default is `true`, so a plain `docker compose up` starts in persona mode.
 
 **Secrets never live in a file, and agents must not try to read them.** `OIDC_CLIENT_SECRET` and
 `GROUPER_PASSWORD` come only from the 1Password Environment.
@@ -236,6 +243,15 @@ on a page with `RequireSignIn` is sent there and returned afterwards. **The bann
 HTML page says who you are signed in as, with **Switch persona**, **Sign out** and **Simulate a Grouper
 outage**.
 
+**Five minutes with personas:**
+
+1. `cd docker && ./up-personas.sh -d`, and wait for `docker compose logs app` to show Apache starting.
+2. Open `https://localhost:8443`; it sends you to the picker.
+3. Choose **Sign in as Erin Editor**; the example page opens, with the banner on top.
+4. **Switch persona** to Nico Newcomer; the example page is 403.
+5. Switch to Ada Admin; **System settings** in the header opens `/framework/authorization`.
+6. Run the tests: `docker compose exec app composer test`.
+
 **Feature tests** sign in as a persona in one call, and run in one process against in-memory SQLite:
 
 ```php
@@ -300,15 +316,21 @@ Component tags (`rvt_accordion`, …) nest inside it. `rivet/README.md` is the c
 
 ```bash
 cp docker/.env.example docker/.env        # optional: ports, OP_ENVIRONMENT_ID, personal overrides
-cd docker && ./up.sh                      # plain `docker compose up` when no OP_ENVIRONMENT_ID is set
+cd docker && ./up-personas.sh             # personas; ./up-iu-services.sh for IU Login and Grouper
 ```
 
-`docker/docker-entrypoint.sh` runs `composer install` every time the `app` container starts, before
-Apache. A failed install is logged (`docker compose logs app`) but does not stop the container; rerun it
-with `docker compose exec app composer install`.
+`docker/docker-entrypoint.sh` runs `composer install`, then `composer migrate`, every time the `app`
+container starts, before Apache. `composer migrate` runs the framework's Phinx migrations and is the one
+place local migrations run. A failure of either is logged (`docker compose logs app`) but does not stop
+the container; rerun it with `docker compose exec app composer install` (or `migrate`). The entrypoint
+is copied into the image, so after changing it or `app.Dockerfile`, start with `--build`
+(`./up-personas.sh --build`).
 
-Once the 1Password Environment is in use, the stack must always come up through `./up.sh`; see the
-landmine on recreation.
+With `DISPLAY_ERRORS_ENABLED=true` (the local default), `bootstrap/app.php` displays errors, except
+deprecations raised inside `vendor/`, which it logs instead: printed before a redirect's headers, they
+break IU Login on PHP 8.5.
+
+Always bring the stack up through a start script; see the landmine on recreation.
 
 Three services, from `docker/docker-compose.yml`:
 
@@ -380,9 +402,13 @@ patterns below are *observed*, not a style guide, and cover only what Pint doesn
 - **`OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` are blank until the 1Password Environment defines them.** With
   IU Login, a blank value trips `OidcConfiguration`'s validation and the app fails at startup. Persona
   sign-in doesn't read them.
-- **A plain `docker compose up` after a `./up.sh` one recreates `app` without the Environment's values.**
-  Compose sees the defaults as a configuration change and rebuilds the container, so auth or Grouper then
-  fails at startup. Bring the stack up through `./up.sh` every time; `exec`, `restart` and `stop` are safe.
+- **A plain `docker compose up` after `./up-iu-services.sh` switches to persona mode.** Compose sees the
+  missing Environment values as a configuration change and recreates `app` with persona sign-in on; the
+  banner at the top of each page shows it. Bring the stack up through a start script every time; `exec`,
+  `restart` and `stop` are safe.
+- **`op run … docker compose up` without the script fails at boot.** `PERSONA_SIGN_IN_ENABLED` defaults
+  to `true` and the Environment sets both secrets, so persona sign-in refuses to start. Use
+  `./up-iu-services.sh`, which turns the flag off.
 - **Variable names in the 1Password Environment must match `docker-compose.yml` exactly.** Compose passes
   only the names it lists, so a misspelled or extra variable never reaches the container.
 - **The framework binds a default `LoggerInterface`** — Monolog on the `framework` channel, writing through
