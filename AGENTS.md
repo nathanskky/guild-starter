@@ -410,7 +410,8 @@ patterns below are *observed*, not a style guide, and cover only what Pint doesn
   `TypeError`: nothing provides the sign-in method it needs.
 - **`OIDC_CLIENT_ID` and `OIDC_CLIENT_SECRET` are blank until the 1Password Environment defines them.** With
   IU Login, a blank value trips `OidcConfiguration`'s validation and the app fails at startup. Persona
-  sign-in doesn't read them.
+  sign-in doesn't read them. If `PERSONA_SIGN_IN_ENABLED` is on but guild/dev-tools is not installed,
+  `config/authentication.php` fails with a message saying that instead.
 - **A plain `docker compose up` after `./up-iu-services.sh` switches to persona mode.** Compose sees the
   missing Environment values as a configuration change and recreates `app` with persona sign-in on; the
   banner at the top of each page shows it. Bring the stack up through a start script every time; `exec`,
