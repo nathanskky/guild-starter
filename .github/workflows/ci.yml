@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  push:
+    branches: [develop, main]
+  pull_request:
+
+jobs:
+  check:
+    name: Style, PHPStan and tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+      - run: composer install --no-interaction --no-progress
+      - run: composer check
+
+  production-build:
+    name: Production build has no persona sign-in
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.5'
+          coverage: none
+      - name: Install as production does
+        run: composer install --no-dev --no-interaction --no-progress
+      - name: dev-tools is not installed
+        run: test ! -e vendor/guild/dev-tools
+      - name: The persona picker is 404, even switched on
+        # Stub IU Login and Grouper settings, so the application boots as in production. Persona
+        # sign-in is switched on to show the flag alone cannot bring it back.
+        env:
+          PERSONA_SIGN_IN_ENABLED: 'true'
+          OIDC_ISSUER: https://idp.login.iu.edu
+          OIDC_CLIENT_ID: ci
+          OIDC_CLIENT_SECRET: ci-stub
+          OIDC_REDIRECT_URI: https://localhost/signin-oidc
+          GROUPER_SERVICE_URL: https://grouper.invalid/grouper-ws/servicesRest/json/v2_5_000
+          GROUPER_USERNAME: ci
+          GROUPER_PASSWORD: ci-stub
+          AUTHORIZATION_SYSTEM_ADMIN_GROUP: CI Admins
+        run: |
+          php -d variables_order=EGPCS -S 127.0.0.1:8099 -t public public/index.php > server.log 2>&1 &
+          status=000
+          for attempt in 1 2 3 4 5 6 7 8 9 10; do
+            status=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:8099/_dev/personas || true)
+            [ "$status" != 000 ] && break
+            sleep 0.5
+          done
+          echo "GET /_dev/personas answered $status"
+          if [ "$status" != 404 ]; then
+            cat server.log
+            exit 1
+          fi

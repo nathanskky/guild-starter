@@ -29,7 +29,7 @@ root-level tooling or a shared root autoloader.
 | Package | Namespace | Role |
 |---|---|---|
 | `guild/starter` *(this one)* | `Guild\Starter\` | Runnable example app |
-| `guild/framework` | `Guild\Framework\` | Application kernel / DI container. Required as `^2.1` (tag constraint) |
+| `guild/framework` | `Guild\Framework\` | Application kernel / DI container. Required as `^2.1.2` (tag constraint) |
 | `guild/dev-tools` | `Guild\DevTools\` | Persona sign-in and the feature-test kit. In `require-dev` only, so production builds don't contain it (see [Personas](#personas)) |
 | `guild/access` | `Guild\Access\` | IU Login (OIDC) authentication. Reached transitively through the framework; not required directly |
 | `guild/grouper` | `Guild\Grouper\` | IU Grouper group-membership lookup, used by the framework's authorization layer. Reached transitively; not required directly, but its VCS repository is declared here (see Landmines) |
@@ -58,6 +58,10 @@ Tests live in `tests/`, under `Guild\Starter\Test\`. `tests/Feature/` holds feat
 personas and visit the app through its real routes, Gate and grants; see [Personas](#personas).
 `phpunit.xml.dist` sets `failOnEmptyTestSuite="true"`, so a run that finds no tests fails rather than
 falsely passing.
+
+CI (`.github/workflows/ci.yml`) runs `composer check`, and checks that a `composer install --no-dev` build
+has no persona sign-in (`/_dev/personas` is 404 even with the flag on), on every push to `develop` and
+`main` and every pull request.
 
 Static analysis levels across the workspace, for reference: `access` `max`, `framework` `10`,
 `notification` `5`, `starter` `10`. Do not assume one bar.

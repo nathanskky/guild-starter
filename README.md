@@ -158,5 +158,6 @@ docker compose exec app composer test    # phpunit
 docker compose exec app composer check   # Pint style check, PHPStan, then phpunit
 ```
 
-`composer check` runs the Pint style check, PHPStan (level 10), then PHPUnit. Feature tests in
+`composer check` runs the Pint style check, PHPStan (level 10), then PHPUnit. CI runs it, plus a check
+that a `--no-dev` build has no persona sign-in, on every push to `develop`/`main` and every pull request. Feature tests in
 `tests/Feature/` sign in as personas; see [AGENTS.md](AGENTS.md#personas).

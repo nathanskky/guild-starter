@@ -27,7 +27,7 @@
     ],
     "require": {
         "php": "~8.5.0",
-        "guild/framework": "^2.1",
+        "guild/framework": "^2.1.2",
         "guild/rivet": "^1.0"
     },
     "require-dev": {
