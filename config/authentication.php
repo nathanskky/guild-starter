@@ -5,7 +5,9 @@ declare(strict_types=1);
 /**
  * Configuration for the OIDC Authentication middleware.
  *
- * @see https://github.com/nathanskky/guild-access#configuration
+ * OidcConfiguration documents each field in its docblock.
+ *
+ * @see https://github.com/nathanskky/guild-framework/blob/main/docs/guides/add-sign-in.md
  */
 
 use Guild\Access\Authentication\OIDC\OidcConfiguration;
