@@ -1,4 +1,4 @@
-{# rvt_page also supports "sidebar" and "anchored_sidebar" layouts; see guild/rivet's README. #}
+{# rvt_page also supports "sidebar" and "anchored_sidebar" layouts; see https://github.com/nathanskky/guild-rivet/blob/main/docs/guides/build-a-page.md #}
 {% rvt_page title="Example Page" heading="Example Page" layout="single_column" %}
   <p>This is an example page rendered with Twig through a Rivet page layout.</p>
 
@@ -14,8 +14,9 @@
     {% rvt_accordion_panel label="Where do I go from here?" %}
       <p>
         Edit this template, or replace <code>src/Example/</code> entirely — it exists only
-        to keep the example code in one identifiable place so it is easy to delete. See
-        <code>AGENTS.md</code> for what is and isn't safe to remove.
+        to keep the example code in one identifiable place so it is easy to delete.
+        <a href="https://github.com/nathanskky/guild-starter/blob/main/docs/guides/remove-the-example-code.md">Remove
+        the example code</a> lists what is and isn't safe to remove.
       </p>
     {% endrvt_accordion_panel %}
   {% endrvt_accordion %}

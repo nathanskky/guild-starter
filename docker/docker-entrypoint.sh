@@ -1,6 +1,8 @@
 #!/bin/sh
 set -e
 
+# Render the bind-mounted Apache templates with the current APP_HTTPS_PORT, so changing the port
+# needs only a restart through a start script, not an image rebuild.
 envsubst '$APP_HTTPS_PORT' < /etc/apache2/sites-available/000-default.conf.template > /etc/apache2/sites-available/000-default.conf
 envsubst '$APP_HTTPS_PORT' < /etc/apache2/mods-available/auth_cas.conf.template > /etc/apache2/mods-available/auth_cas.conf
 

@@ -7,9 +7,9 @@ declare(strict_types=1);
  * (docker/up-personas.sh, and the tests). Read only then; production never reads it.
  *
  * Groups name real Grouper system names and ACM labels, so the grants below are the
- * ones production would need. See AGENTS.md, "Personas".
+ * ones production would need.
  *
- * @see https://github.com/nathanskky/guild-dev-tools#the-roster-configpersonasphp
+ * @see https://github.com/nathanskky/guild-dev-tools/blob/main/docs/guides/write-the-roster.md
  */
 
 use Guild\DevTools\Persona\DirectoryStatus;

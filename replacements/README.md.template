@@ -1,1 +1,6 @@
-# README
+# My Guild app
+
+<!-- Describe what this app does and who uses it. -->
+
+Built on Guild. To run it locally and configure it, read
+[guild/starter's docs](https://github.com/nathanskky/guild-starter/blob/main/docs/index.md).

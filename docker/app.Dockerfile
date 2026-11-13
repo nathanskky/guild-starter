@@ -24,7 +24,8 @@ RUN set -eux; \
     a2ensite default-ssl; \
     rm -rf /var/lib/apt/lists/*
 
-# Enable Apereo CAS module for Apache
+# Enable Apereo CAS module for Apache. Apps that sign in with Apache CAS instead of IU Login need
+# it, and auth_cas.conf configures it, so keep this step even when the app uses IU Login.
 RUN apt-get update && \
     apt-get install -y libapache2-mod-auth-cas
 RUN a2enmod auth_cas

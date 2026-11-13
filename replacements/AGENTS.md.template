@@ -1,0 +1,15 @@
+# AGENTS.md
+
+<!-- This file is yours: describe how this app is built, run and tested. -->
+
+## Built on Guild
+
+This app was created from guild/starter. When a task touches Guild:
+
+- How the app works (sign-in, authorization, pages, extensions): `vendor/guild/framework/docs/index.md`
+- Running it locally, config, secrets, personas: https://github.com/nathanskky/guild-starter/blob/main/docs/index.md
+- Each Guild package documents itself at `vendor/guild/<package>/docs/index.md`.
+  A link to `github.com/nathanskky/guild-<package>/blob/<ref>/docs/…` is the same file under
+  `vendor/guild/<package>/docs/…` at the version this app has installed; prefer the local copy.
+
+Open the index, pick the one page that matches the task, and read only that.
